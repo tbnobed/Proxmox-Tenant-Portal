@@ -53,11 +53,16 @@ function request(
     const isHttps = parsed.protocol === "https:";
     const mod = isHttps ? https : http;
 
+    const hdrs: Record<string, string> = { ...options.headers };
+    if (options.body) {
+      hdrs["Content-Length"] = Buffer.byteLength(options.body, "utf-8").toString();
+    }
+
     const req = mod.request(
       url,
       {
         method: options.method ?? "GET",
-        headers: options.headers,
+        headers: hdrs,
         rejectUnauthorized: false,
       },
       (res) => {
