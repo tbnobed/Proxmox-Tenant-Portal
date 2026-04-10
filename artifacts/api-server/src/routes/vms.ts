@@ -174,7 +174,7 @@ router.post("/vms/:id/action", async (req, res): Promise<void> => {
   }
 
   const [cluster] = await db.select().from(clustersTable).where(eq(clustersTable.id, vm.clusterId));
-  if (!cluster?.password) {
+  if (!cluster?.passwordHash) {
     res.status(400).json({ error: "Cluster credentials not available for this VM" });
     return;
   }
@@ -184,7 +184,7 @@ router.post("/vms/:id/action", async (req, res): Promise<void> => {
       cluster.host,
       cluster.port,
       cluster.username,
-      cluster.password,
+      cluster.passwordHash,
       cluster.realm,
       vm.node,
       vm.vmId,
@@ -225,7 +225,7 @@ router.post("/vms/:id/console", async (req, res): Promise<void> => {
   }
 
   const [cluster] = await db.select().from(clustersTable).where(eq(clustersTable.id, vm.clusterId));
-  if (!cluster?.password) {
+  if (!cluster?.passwordHash) {
     res.status(400).json({ error: "Cluster credentials not available" });
     return;
   }
@@ -235,7 +235,7 @@ router.post("/vms/:id/console", async (req, res): Promise<void> => {
       cluster.host,
       cluster.port,
       cluster.username,
-      cluster.password,
+      cluster.passwordHash,
       cluster.realm,
       vm.node,
       vm.vmId,

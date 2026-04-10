@@ -205,6 +205,16 @@ export default function VmsPage() {
                           </Button>
                         </>
                       )}
+                      <Link href={`/vms/${vm.id}/console`}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          title="Console"
+                        >
+                          <Monitor className="w-3.5 h-3.5 text-primary" />
+                        </Button>
+                      </Link>
                       <Button
                         variant="ghost"
                         size="sm"
