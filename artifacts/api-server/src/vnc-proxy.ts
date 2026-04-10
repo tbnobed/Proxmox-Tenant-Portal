@@ -71,9 +71,6 @@ export function setupVncProxy(): WebSocketServer {
 
     proxmoxWs.binaryType = "arraybuffer";
 
-    let proxmoxMsgCount = 0;
-    let clientMsgCount = 0;
-
     proxmoxWs.on("open", () => {
       logger.info("VNC proxy: connected to Proxmox VNC WebSocket");
       proxmoxReady = true;
@@ -87,13 +84,8 @@ export function setupVncProxy(): WebSocketServer {
     });
 
     proxmoxWs.on("message", (data: RawData, isBinary: boolean) => {
-      proxmoxMsgCount++;
-      const buf = toBuffer(data);
-      if (proxmoxMsgCount <= 3) {
-        logger.info({ len: buf.length, isBinary, msgNum: proxmoxMsgCount }, "VNC proxy: proxmox→client");
-      }
       if (clientWs.readyState === WebSocket.OPEN) {
-        clientWs.send(buf, { binary: true });
+        clientWs.send(toBuffer(data), { binary: true });
       }
     });
 
@@ -112,11 +104,7 @@ export function setupVncProxy(): WebSocketServer {
     });
 
     clientWs.on("message", (data: RawData, isBinary: boolean) => {
-      clientMsgCount++;
       const buf = toBuffer(data);
-      if (clientMsgCount <= 3) {
-        logger.info({ len: buf.length, isBinary, msgNum: clientMsgCount }, "VNC proxy: client→proxmox");
-      }
       if (proxmoxReady && proxmoxWs.readyState === WebSocket.OPEN) {
         proxmoxWs.send(buf);
       } else {

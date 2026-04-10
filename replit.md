@@ -23,8 +23,11 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 - Uses `Content-Length` header (not chunked TE) for compatibility with Proxmox API
 - Self-signed cert support via `rejectUnauthorized: false`
 - `vnc-proxy.ts`: WebSocket proxy that bridges browser noVNC client to Proxmox VNC WebSocket
-- Console uses a standalone `vnc.html` page loading noVNC from CDN (avoids bundler compatibility issues)
+- Console uses a standalone `vnc.html` page loading noVNC from CDN (`esm.sh/@novnc/novnc@1.4.0`) — avoids bundler compatibility issues
 - Token-based session management for VNC connections (120s TTL)
+- VNC auth: Proxmox `vncTicket` is passed to noVNC as the VNC password for the RFB auth challenge
+- WebSocket subprotocol `binary` negotiated for proper noVNC communication
+- Client message buffering: messages queued until Proxmox WS connection is ready
 
 ## Stack
 
