@@ -1,6 +1,6 @@
 import { useParams, Link } from "wouter";
 import { useGetTenant, useGetTenantSummary, useListUsers, useListTenantVmAccess, useListVms } from "@workspace/api-client-react";
-import { ArrowLeft, Building2, Users, Monitor, Play, Square } from "lucide-react";
+import { ArrowLeft, Users, Monitor } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -33,14 +33,13 @@ export default function TenantDetailPage() {
 
   const tenantUsers = allUsers?.filter(u => u.tenantId === id) ?? [];
   const accessGrants = tenantVmAccess?.filter(a => a.tenantId === id) ?? [];
+  void accessGrants;
 
   return (
     <div className="p-6 md:p-8 space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/tenants">
-          <a className="text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-          </a>
+        <Link href="/tenants" className="text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="w-4 h-4" />
         </Link>
         {isLoading ? (
           <Skeleton className="h-7 w-48" />
@@ -85,14 +84,12 @@ export default function TenantDetailPage() {
           ) : (
             <div className="divide-y divide-border">
               {tenantUsers.map(u => (
-                <Link key={u.id} href={`/users/${u.id}`}>
-                  <a className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 transition-colors">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{u.fullName ?? u.username}</p>
-                      <p className="text-xs text-muted-foreground">{u.email}</p>
-                    </div>
-                    <StatusBadge status={u.role} />
-                  </a>
+                <Link key={u.id} href={`/users/${u.id}`} className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 transition-colors">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{u.fullName ?? u.username}</p>
+                    <p className="text-xs text-muted-foreground">{u.email}</p>
+                  </div>
+                  <StatusBadge status={u.role} />
                 </Link>
               ))}
             </div>
@@ -111,14 +108,12 @@ export default function TenantDetailPage() {
           ) : (
             <div className="divide-y divide-border">
               {vms.map(vm => (
-                <Link key={vm.id} href={`/vms/${vm.id}`}>
-                  <a className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 transition-colors">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{vm.name}</p>
-                      <p className="text-xs text-muted-foreground">{vm.clusterName} — Node: {vm.node}</p>
-                    </div>
-                    <StatusBadge status={vm.status} />
-                  </a>
+                <Link key={vm.id} href={`/vms/${vm.id}`} className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 transition-colors">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{vm.name}</p>
+                    <p className="text-xs text-muted-foreground">{vm.clusterName} — Node: {vm.node}</p>
+                  </div>
+                  <StatusBadge status={vm.status} />
                 </Link>
               ))}
             </div>

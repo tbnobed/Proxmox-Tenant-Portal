@@ -156,8 +156,8 @@ export default function TenantsPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Link href={`/tenants/${t.id}`}>
-                    <a className="font-medium text-foreground hover:text-primary transition-colors">{t.name}</a>
+                  <Link href={`/tenants/${t.id}`} className="font-medium text-foreground hover:text-primary transition-colors">
+                    {t.name}
                   </Link>
                   <StatusBadge status={t.status} />
                 </div>

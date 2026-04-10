@@ -1,7 +1,7 @@
 import { useParams, Link } from "wouter";
 import { useGetCluster, useListVms, useSyncCluster, getGetClusterQueryKey, getListVmsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, ArrowLeft, Monitor, Server } from "lucide-react";
+import { RefreshCw, ArrowLeft, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -53,10 +53,8 @@ export default function ClusterDetailPage() {
   return (
     <div className="p-6 md:p-8 space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/clusters">
-          <a className="text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-          </a>
+        <Link href="/clusters" className="text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="w-4 h-4" />
         </Link>
         {loadingCluster ? (
           <Skeleton className="h-7 w-48" />
@@ -96,26 +94,24 @@ export default function ClusterDetailPage() {
         ) : (
           <div className="divide-y divide-border">
             {vms.map(vm => (
-              <Link key={vm.id} href={`/vms/${vm.id}`}>
-                <a className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
-                  <Monitor className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-foreground">{vm.name}</span>
-                      <StatusBadge status={vm.status} />
-                      <span className="text-xs text-muted-foreground uppercase">{vm.type}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Node: {vm.node} &mdash; VMID: {vm.vmId}
-                      {vm.cpus ? ` — ${vm.cpus} vCPU` : ""}
-                      {vm.memoryMb ? ` — ${vm.memoryMb}MB RAM` : ""}
-                      {vm.ipAddress ? ` — ${vm.ipAddress}` : ""}
-                    </p>
+              <Link key={vm.id} href={`/vms/${vm.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
+                <Monitor className="w-4 h-4 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-foreground">{vm.name}</span>
+                    <StatusBadge status={vm.status} />
+                    <span className="text-xs text-muted-foreground uppercase">{vm.type}</span>
                   </div>
-                  {vm.tenantName && (
-                    <span className="text-xs text-muted-foreground shrink-0">{vm.tenantName}</span>
-                  )}
-                </a>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Node: {vm.node} &mdash; VMID: {vm.vmId}
+                    {vm.cpus ? ` — ${vm.cpus} vCPU` : ""}
+                    {vm.memoryMb ? ` — ${vm.memoryMb}MB RAM` : ""}
+                    {vm.ipAddress ? ` — ${vm.ipAddress}` : ""}
+                  </p>
+                </div>
+                {vm.tenantName && (
+                  <span className="text-xs text-muted-foreground shrink-0">{vm.tenantName}</span>
+                )}
               </Link>
             ))}
           </div>

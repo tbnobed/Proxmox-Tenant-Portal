@@ -35,10 +35,8 @@ export default function UserDetailPage() {
   return (
     <div className="p-6 md:p-8 space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/users">
-          <a className="text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-          </a>
+        <Link href="/users" className="text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="w-4 h-4" />
         </Link>
         {isLoading ? (
           <Skeleton className="h-7 w-48" />
@@ -64,8 +62,8 @@ export default function UserDetailPage() {
           <div className="rounded-lg border border-border bg-card p-4">
             <p className="text-xs text-muted-foreground">Tenant</p>
             {user.tenantId ? (
-              <Link href={`/tenants/${user.tenantId}`}>
-                <a className="text-sm font-medium text-primary hover:underline mt-1 block">{user.tenantName}</a>
+              <Link href={`/tenants/${user.tenantId}`} className="text-sm font-medium text-primary hover:underline mt-1 block">
+                {user.tenantName}
               </Link>
             ) : (
               <p className="text-sm text-muted-foreground mt-1">None</p>
@@ -90,13 +88,11 @@ export default function UserDetailPage() {
         ) : (
           <div className="divide-y divide-border">
             {userAccess.map(a => (
-              <Link key={a.id} href={`/vms/${a.vmId}`}>
-                <a className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 transition-colors">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{a.vmName}</p>
-                    <p className="text-xs text-muted-foreground">Granted {new Date(a.grantedAt).toLocaleDateString()}</p>
-                  </div>
-                </a>
+              <Link key={a.id} href={`/vms/${a.vmId}`} className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 transition-colors">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{a.vmName}</p>
+                  <p className="text-xs text-muted-foreground">Granted {new Date(a.grantedAt).toLocaleDateString()}</p>
+                </div>
               </Link>
             ))}
           </div>

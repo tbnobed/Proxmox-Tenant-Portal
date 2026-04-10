@@ -60,10 +60,8 @@ export default function VmDetailPage() {
   return (
     <div className="p-6 md:p-8 space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/vms">
-          <a className="text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-          </a>
+        <Link href="/vms" className="text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="w-4 h-4" />
         </Link>
         {isLoading ? (
           <Skeleton className="h-7 w-48" />
@@ -143,8 +141,8 @@ export default function VmDetailPage() {
               </div>
               <div className="px-4 py-3">
                 {vm.tenantId ? (
-                  <Link href={`/tenants/${vm.tenantId}`}>
-                    <a className="text-sm font-medium text-primary hover:underline">{vm.tenantName}</a>
+                  <Link href={`/tenants/${vm.tenantId}`} className="text-sm font-medium text-primary hover:underline">
+                    {vm.tenantName}
                   </Link>
                 ) : (
                   <p className="text-sm text-muted-foreground">Not assigned to a tenant</p>
@@ -161,11 +159,9 @@ export default function VmDetailPage() {
               ) : (
                 <div className="divide-y divide-border">
                   {vmUserAccess.map(a => (
-                    <Link key={a.id} href={`/users/${a.userId}`}>
-                      <a className="block px-4 py-2.5 hover:bg-muted/30 transition-colors">
-                        <p className="text-sm font-medium text-foreground">{a.userName}</p>
-                        <p className="text-xs text-muted-foreground">Since {new Date(a.grantedAt).toLocaleDateString()}</p>
-                      </a>
+                    <Link key={a.id} href={`/users/${a.userId}`} className="block px-4 py-2.5 hover:bg-muted/30 transition-colors">
+                      <p className="text-sm font-medium text-foreground">{a.userName}</p>
+                      <p className="text-xs text-muted-foreground">Since {new Date(a.grantedAt).toLocaleDateString()}</p>
                     </Link>
                   ))}
                 </div>

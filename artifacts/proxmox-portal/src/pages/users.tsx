@@ -168,10 +168,10 @@ export default function UsersPage() {
         </div>
         <div>
           <Label>Tenant</Label>
-          <Select value={form.tenantId} onValueChange={v => setForm(f => ({ ...f, tenantId: v }))}>
+          <Select value={form.tenantId || "none"} onValueChange={v => setForm(f => ({ ...f, tenantId: v === "none" ? "" : v }))}>
             <SelectTrigger className="mt-1"><SelectValue placeholder="No tenant" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">No tenant</SelectItem>
+              <SelectItem value="none">No tenant</SelectItem>
               {tenants?.map(t => <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -215,8 +215,8 @@ export default function UsersPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Link href={`/users/${u.id}`}>
-                    <a className="font-medium text-foreground hover:text-primary transition-colors">{u.fullName ?? u.username}</a>
+                  <Link href={`/users/${u.id}`} className="font-medium text-foreground hover:text-primary transition-colors">
+                    {u.fullName ?? u.username}
                   </Link>
                   <RoleBadge role={u.role} />
                   <StatusBadge status={u.status} />

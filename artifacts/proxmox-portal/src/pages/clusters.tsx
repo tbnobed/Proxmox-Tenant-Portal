@@ -198,8 +198,8 @@ export default function ClustersPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Link href={`/clusters/${c.id}`}>
-                    <a className="font-medium text-foreground hover:text-primary transition-colors">{c.name}</a>
+                  <Link href={`/clusters/${c.id}`} className="font-medium text-foreground hover:text-primary transition-colors">
+                    {c.name}
                   </Link>
                   <StatusBadge status={c.status} />
                 </div>

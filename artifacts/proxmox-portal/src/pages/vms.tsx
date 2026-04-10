@@ -11,7 +11,7 @@ import {
 import type { Vm } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Monitor, Play, Square, RotateCcw, Trash2, ChevronDown } from "lucide-react";
+import { Monitor, Play, Square, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -33,16 +33,16 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function VmsPage() {
-  const [clusterFilter, setClusterFilter] = useState<string>("");
-  const [tenantFilter, setTenantFilter] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [clusterFilter, setClusterFilter] = useState<string>("all");
+  const [tenantFilter, setTenantFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [deleteVm, setDeleteVm] = useState<Vm | null>(null);
   const [actioningId, setActioningId] = useState<number | null>(null);
 
   const params: Record<string, number | string> = {};
-  if (clusterFilter) params.clusterId = parseInt(clusterFilter, 10);
-  if (tenantFilter) params.tenantId = parseInt(tenantFilter, 10);
-  if (statusFilter) params.status = statusFilter;
+  if (clusterFilter !== "all") params.clusterId = parseInt(clusterFilter, 10);
+  if (tenantFilter !== "all") params.tenantId = parseInt(tenantFilter, 10);
+  if (statusFilter !== "all") params.status = statusFilter;
 
   const { data: vms, isLoading } = useListVms({ params });
   const { data: clusters } = useListClusters();
@@ -80,6 +80,8 @@ export default function VmsPage() {
     });
   }
 
+  const hasFilters = clusterFilter !== "all" || tenantFilter !== "all" || statusFilter !== "all";
+
   return (
     <div className="p-6 md:p-8 space-y-6">
       <div>
@@ -94,7 +96,7 @@ export default function VmsPage() {
             <SelectValue placeholder="All clusters" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All clusters</SelectItem>
+            <SelectItem value="all">All clusters</SelectItem>
             {clusters?.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
           </SelectContent>
         </Select>
@@ -103,7 +105,7 @@ export default function VmsPage() {
             <SelectValue placeholder="All tenants" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All tenants</SelectItem>
+            <SelectItem value="all">All tenants</SelectItem>
             {tenants?.map(t => <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>)}
           </SelectContent>
         </Select>
@@ -112,14 +114,14 @@ export default function VmsPage() {
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All statuses</SelectItem>
+            <SelectItem value="all">All statuses</SelectItem>
             <SelectItem value="running">Running</SelectItem>
             <SelectItem value="stopped">Stopped</SelectItem>
             <SelectItem value="paused">Paused</SelectItem>
           </SelectContent>
         </Select>
-        {(clusterFilter || tenantFilter || statusFilter) && (
-          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setClusterFilter(""); setTenantFilter(""); setStatusFilter(""); }}>
+        {hasFilters && (
+          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setClusterFilter("all"); setTenantFilter("all"); setStatusFilter("all"); }}>
             Clear filters
           </Button>
         )}
@@ -152,8 +154,8 @@ export default function VmsPage() {
               {vms.map(vm => (
                 <tr key={vm.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
                   <td className="px-4 py-3">
-                    <Link href={`/vms/${vm.id}`}>
-                      <a className="font-medium text-foreground hover:text-primary transition-colors">{vm.name}</a>
+                    <Link href={`/vms/${vm.id}`} className="font-medium text-foreground hover:text-primary transition-colors">
+                      {vm.name}
                     </Link>
                     <p className="text-xs text-muted-foreground mt-0.5">ID: {vm.vmId} — {vm.type.toUpperCase()} — {vm.node}</p>
                   </td>
