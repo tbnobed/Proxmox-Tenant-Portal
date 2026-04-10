@@ -1,7 +1,6 @@
 import { IncomingMessage } from "node:http";
 import { Duplex } from "node:stream";
-import https from "node:https";
-import { WebSocketServer, WebSocket } from "ws";
+import { WebSocketServer, WebSocket, type RawData } from "ws";
 import { logger } from "./lib/logger";
 
 interface VncSession {
@@ -25,7 +24,13 @@ export function createVncSession(token: string, session: VncSession) {
 }
 
 export function setupVncProxy(): WebSocketServer {
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({
+    noServer: true,
+    handleProtocols(protocols) {
+      if (protocols.has("binary")) return "binary";
+      return false;
+    },
+  });
 
   wss.on("connection", (clientWs: WebSocket, req: IncomingMessage) => {
     const url = new URL(req.url ?? "/", "http://localhost");
@@ -46,58 +51,88 @@ export function setupVncProxy(): WebSocketServer {
 
     sessions.delete(token);
 
+    clientWs.binaryType = "arraybuffer";
+
+    const pendingClientMessages: Buffer[] = [];
+    let proxmoxReady = false;
+
     const vmType = session.type === "lxc" ? "lxc" : "qemu";
     const wsPath = `/api2/json/nodes/${session.node}/${vmType}/${session.vmId}/vncwebsocket?port=${session.vncPort}&vncticket=${encodeURIComponent(session.vncTicket)}`;
     const wsUrl = `wss://${session.host}:${session.port}${wsPath}`;
 
     logger.info({ wsUrl: wsUrl.split("?")[0] }, "VNC proxy: connecting to Proxmox");
 
-    const proxmoxWs = new WebSocket(wsUrl, {
+    const proxmoxWs = new WebSocket(wsUrl, ["binary"], {
       headers: {
         Cookie: `PVEAuthCookie=${session.ticket}`,
       },
       rejectUnauthorized: false,
     });
 
+    proxmoxWs.binaryType = "arraybuffer";
+
+    let proxmoxMsgCount = 0;
+    let clientMsgCount = 0;
+
     proxmoxWs.on("open", () => {
       logger.info("VNC proxy: connected to Proxmox VNC WebSocket");
+      proxmoxReady = true;
+
+      for (const msg of pendingClientMessages) {
+        if (proxmoxWs.readyState === WebSocket.OPEN) {
+          proxmoxWs.send(msg);
+        }
+      }
+      pendingClientMessages.length = 0;
     });
 
-    proxmoxWs.on("message", (data) => {
+    proxmoxWs.on("message", (data: RawData, isBinary: boolean) => {
+      proxmoxMsgCount++;
+      const buf = toBuffer(data);
+      if (proxmoxMsgCount <= 3) {
+        logger.info({ len: buf.length, isBinary, msgNum: proxmoxMsgCount }, "VNC proxy: proxmox→client");
+      }
       if (clientWs.readyState === WebSocket.OPEN) {
-        clientWs.send(data);
+        clientWs.send(buf, { binary: true });
       }
     });
 
     proxmoxWs.on("close", (code, reason) => {
       logger.info({ code, reason: reason.toString() }, "VNC proxy: Proxmox WS closed");
       if (clientWs.readyState === WebSocket.OPEN) {
-        clientWs.close(code, reason.toString());
+        clientWs.close(1000, "Proxmox session ended");
       }
     });
 
     proxmoxWs.on("error", (err) => {
-      logger.error({ err }, "VNC proxy: Proxmox WS error");
+      logger.error({ err: err.message }, "VNC proxy: Proxmox WS error");
       if (clientWs.readyState === WebSocket.OPEN) {
         clientWs.close(4003, "Proxmox connection error");
       }
     });
 
-    clientWs.on("message", (data) => {
-      if (proxmoxWs.readyState === WebSocket.OPEN) {
-        proxmoxWs.send(data);
+    clientWs.on("message", (data: RawData, isBinary: boolean) => {
+      clientMsgCount++;
+      const buf = toBuffer(data);
+      if (clientMsgCount <= 3) {
+        logger.info({ len: buf.length, isBinary, msgNum: clientMsgCount }, "VNC proxy: client→proxmox");
+      }
+      if (proxmoxReady && proxmoxWs.readyState === WebSocket.OPEN) {
+        proxmoxWs.send(buf);
+      } else {
+        pendingClientMessages.push(buf);
       }
     });
 
-    clientWs.on("close", () => {
-      logger.info("VNC proxy: client disconnected");
+    clientWs.on("close", (code) => {
+      logger.info({ code }, "VNC proxy: client disconnected");
       if (proxmoxWs.readyState === WebSocket.OPEN) {
         proxmoxWs.close();
       }
     });
 
     clientWs.on("error", (err) => {
-      logger.error({ err }, "VNC proxy: client WS error");
+      logger.error({ err: err.message }, "VNC proxy: client WS error");
       if (proxmoxWs.readyState === WebSocket.OPEN) {
         proxmoxWs.close();
       }
@@ -105,6 +140,13 @@ export function setupVncProxy(): WebSocketServer {
   });
 
   return wss;
+}
+
+function toBuffer(data: RawData): Buffer {
+  if (Buffer.isBuffer(data)) return data;
+  if (data instanceof ArrayBuffer) return Buffer.from(data);
+  if (Array.isArray(data)) return Buffer.concat(data);
+  return Buffer.from(data as any);
 }
 
 export function handleUpgrade(
@@ -116,6 +158,7 @@ export function handleUpgrade(
   const url = new URL(req.url ?? "/", "http://localhost");
   if (url.pathname === "/api/vnc") {
     wss.handleUpgrade(req, socket, head, (ws) => {
+      ws.binaryType = "arraybuffer";
       wss.emit("connection", ws, req);
     });
   } else {
