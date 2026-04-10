@@ -3,20 +3,32 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Proxmox Portal API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: clusters
+    description: Proxmox cluster management
+  - name: tenants
+    description: Tenant management
+  - name: users
+    description: User management
+  - name: vms
+    description: VM management
+  - name: access
+    description: Access control
+  - name: dashboard
+    description: Dashboard and stats
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +36,664 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # Clusters
+  /clusters:
+    get:
+      operationId: listClusters
+      tags: [clusters]
+      summary: List all Proxmox clusters
+      responses:
+        "200":
+          description: List of clusters
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Cluster"
+    post:
+      operationId: createCluster
+      tags: [clusters]
+      summary: Register a new Proxmox cluster
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateClusterBody"
+      responses:
+        "201":
+          description: Cluster created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cluster"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /clusters/{id}:
+    get:
+      operationId: getCluster
+      tags: [clusters]
+      summary: Get a specific cluster
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Cluster details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cluster"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateCluster
+      tags: [clusters]
+      summary: Update a cluster
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateClusterBody"
+      responses:
+        "200":
+          description: Cluster updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cluster"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteCluster
+      tags: [clusters]
+      summary: Remove a cluster
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /clusters/{id}/sync:
+    post:
+      operationId: syncCluster
+      tags: [clusters]
+      summary: Sync VMs from Proxmox cluster
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncResult"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # Tenants
+  /tenants:
+    get:
+      operationId: listTenants
+      tags: [tenants]
+      summary: List all tenants
+      responses:
+        "200":
+          description: List of tenants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tenant"
+    post:
+      operationId: createTenant
+      tags: [tenants]
+      summary: Create a tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTenantBody"
+      responses:
+        "201":
+          description: Tenant created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tenants/{id}:
+    get:
+      operationId: getTenant
+      tags: [tenants]
+      summary: Get a specific tenant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Tenant details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateTenant
+      tags: [tenants]
+      summary: Update a tenant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTenantBody"
+      responses:
+        "200":
+          description: Tenant updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteTenant
+      tags: [tenants]
+      summary: Delete a tenant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tenants/{id}/summary:
+    get:
+      operationId: getTenantSummary
+      tags: [tenants]
+      summary: Get tenant VM summary (counts by status)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Tenant summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantSummary"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # Users
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserBody"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get a specific user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserBody"
+      responses:
+        "200":
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Delete a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # VMs
+  /vms:
+    get:
+      operationId: listVms
+      tags: [vms]
+      summary: List VMs
+      parameters:
+        - name: clusterId
+          in: query
+          required: false
+          schema:
+            type: ["integer", "null"]
+        - name: tenantId
+          in: query
+          required: false
+          schema:
+            type: ["integer", "null"]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: List of VMs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vm"
+    post:
+      operationId: createVm
+      tags: [vms]
+      summary: Manually add a VM record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVmBody"
+      responses:
+        "201":
+          description: VM created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vm"
+
+  /vms/{id}:
+    get:
+      operationId: getVm
+      tags: [vms]
+      summary: Get a VM
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: VM details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vm"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateVm
+      tags: [vms]
+      summary: Update a VM record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateVmBody"
+      responses:
+        "200":
+          description: VM updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vm"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteVm
+      tags: [vms]
+      summary: Delete a VM record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /vms/{id}/action:
+    post:
+      operationId: vmAction
+      tags: [vms]
+      summary: Execute a VM action (start/stop/reboot/shutdown)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VmActionBody"
+      responses:
+        "200":
+          description: Action result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VmActionResult"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # Access
+  /access/tenant-vms:
+    get:
+      operationId: listTenantVmAccess
+      tags: [access]
+      summary: List all tenant-VM access grants
+      responses:
+        "200":
+          description: Access list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TenantVmAccess"
+    post:
+      operationId: grantTenantVmAccess
+      tags: [access]
+      summary: Grant a tenant access to a VM
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GrantTenantVmAccessBody"
+      responses:
+        "201":
+          description: Access granted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantVmAccess"
+
+  /access/tenant-vms/{id}:
+    delete:
+      operationId: revokeTenantVmAccess
+      tags: [access]
+      summary: Revoke tenant VM access
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Revoked
+
+  /access/user-vms:
+    get:
+      operationId: listUserVmAccess
+      tags: [access]
+      summary: List all user-VM access grants
+      responses:
+        "200":
+          description: Access list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserVmAccess"
+    post:
+      operationId: grantUserVmAccess
+      tags: [access]
+      summary: Grant a user access to a VM
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GrantUserVmAccessBody"
+      responses:
+        "201":
+          description: Access granted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserVmAccess"
+
+  /access/user-vms/{id}:
+    delete:
+      operationId: revokeUserVmAccess
+      tags: [access]
+      summary: Revoke user VM access
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Revoked
+
+  # Dashboard
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get overall dashboard statistics
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Get recent VM actions
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityEvent"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +704,518 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    Cluster:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        host:
+          type: string
+        port:
+          type: integer
+        username:
+          type: string
+        realm:
+          type: string
+        status:
+          type: string
+        vmCount:
+          type: integer
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - host
+        - port
+        - username
+        - realm
+        - status
+        - vmCount
+        - createdAt
+        - updatedAt
+
+    CreateClusterBody:
+      type: object
+      properties:
+        name:
+          type: string
+        host:
+          type: string
+        port:
+          type: integer
+        username:
+          type: string
+        password:
+          type: string
+        realm:
+          type: string
+      required:
+        - name
+        - host
+        - port
+        - username
+        - password
+        - realm
+
+    UpdateClusterBody:
+      type: object
+      properties:
+        name:
+          type: ["string", "null"]
+        host:
+          type: ["string", "null"]
+        port:
+          type: ["integer", "null"]
+        username:
+          type: ["string", "null"]
+        password:
+          type: ["string", "null"]
+        realm:
+          type: ["string", "null"]
+        status:
+          type: ["string", "null"]
+
+    SyncResult:
+      type: object
+      properties:
+        synced:
+          type: integer
+        added:
+          type: integer
+        updated:
+          type: integer
+        message:
+          type: string
+      required:
+        - synced
+        - added
+        - updated
+        - message
+
+    Tenant:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        contactEmail:
+          type: ["string", "null"]
+        status:
+          type: string
+        userCount:
+          type: integer
+        vmCount:
+          type: integer
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - status
+        - userCount
+        - vmCount
+        - createdAt
+        - updatedAt
+
+    CreateTenantBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        contactEmail:
+          type: ["string", "null"]
+      required:
+        - name
+
+    UpdateTenantBody:
+      type: object
+      properties:
+        name:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        contactEmail:
+          type: ["string", "null"]
+        status:
+          type: ["string", "null"]
+
+    TenantSummary:
+      type: object
+      properties:
+        tenantId:
+          type: integer
+        totalVms:
+          type: integer
+        runningVms:
+          type: integer
+        stoppedVms:
+          type: integer
+        pausedVms:
+          type: integer
+        totalUsers:
+          type: integer
+      required:
+        - tenantId
+        - totalVms
+        - runningVms
+        - stoppedVms
+        - pausedVms
+        - totalUsers
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          type: string
+        fullName:
+          type: ["string", "null"]
+        role:
+          type: string
+        tenantId:
+          type: ["integer", "null"]
+        tenantName:
+          type: ["string", "null"]
+        status:
+          type: string
+        vmCount:
+          type: integer
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - username
+        - email
+        - role
+        - status
+        - vmCount
+        - createdAt
+        - updatedAt
+
+    CreateUserBody:
+      type: object
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+        fullName:
+          type: ["string", "null"]
+        role:
+          type: string
+        tenantId:
+          type: ["integer", "null"]
+        password:
+          type: string
+      required:
+        - username
+        - email
+        - role
+        - password
+
+    UpdateUserBody:
+      type: object
+      properties:
+        username:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        fullName:
+          type: ["string", "null"]
+        role:
+          type: ["string", "null"]
+        tenantId:
+          type: ["integer", "null"]
+        status:
+          type: ["string", "null"]
+        password:
+          type: ["string", "null"]
+
+    Vm:
+      type: object
+      properties:
+        id:
+          type: integer
+        vmId:
+          type: integer
+        name:
+          type: string
+        node:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        cpus:
+          type: ["integer", "null"]
+        memoryMb:
+          type: ["integer", "null"]
+        diskGb:
+          type: ["integer", "null"]
+        ipAddress:
+          type: ["string", "null"]
+        os:
+          type: ["string", "null"]
+        clusterId:
+          type: integer
+        clusterName:
+          type: string
+        tenantId:
+          type: ["integer", "null"]
+        tenantName:
+          type: ["string", "null"]
+        tags:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - vmId
+        - name
+        - node
+        - type
+        - status
+        - clusterId
+        - clusterName
+        - createdAt
+        - updatedAt
+
+    CreateVmBody:
+      type: object
+      properties:
+        vmId:
+          type: integer
+        name:
+          type: string
+        node:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        cpus:
+          type: ["integer", "null"]
+        memoryMb:
+          type: ["integer", "null"]
+        diskGb:
+          type: ["integer", "null"]
+        ipAddress:
+          type: ["string", "null"]
+        os:
+          type: ["string", "null"]
+        clusterId:
+          type: integer
+        tenantId:
+          type: ["integer", "null"]
+        tags:
+          type: ["string", "null"]
+      required:
+        - vmId
+        - name
+        - node
+        - type
+        - status
+        - clusterId
+
+    UpdateVmBody:
+      type: object
+      properties:
+        name:
+          type: ["string", "null"]
+        status:
+          type: ["string", "null"]
+        cpus:
+          type: ["integer", "null"]
+        memoryMb:
+          type: ["integer", "null"]
+        diskGb:
+          type: ["integer", "null"]
+        ipAddress:
+          type: ["string", "null"]
+        os:
+          type: ["string", "null"]
+        tenantId:
+          type: ["integer", "null"]
+        tags:
+          type: ["string", "null"]
+
+    VmActionBody:
+      type: object
+      properties:
+        action:
+          type: string
+      required:
+        - action
+
+    VmActionResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        vmId:
+          type: integer
+        action:
+          type: string
+      required:
+        - success
+        - message
+        - vmId
+        - action
+
+    TenantVmAccess:
+      type: object
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        vmId:
+          type: integer
+        tenantName:
+          type: string
+        vmName:
+          type: string
+        grantedAt:
+          type: string
+      required:
+        - id
+        - tenantId
+        - vmId
+        - tenantName
+        - vmName
+        - grantedAt
+
+    GrantTenantVmAccessBody:
+      type: object
+      properties:
+        tenantId:
+          type: integer
+        vmId:
+          type: integer
+      required:
+        - tenantId
+        - vmId
+
+    UserVmAccess:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        vmId:
+          type: integer
+        userName:
+          type: string
+        vmName:
+          type: string
+        grantedAt:
+          type: string
+      required:
+        - id
+        - userId
+        - vmId
+        - userName
+        - vmName
+        - grantedAt
+
+    GrantUserVmAccessBody:
+      type: object
+      properties:
+        userId:
+          type: integer
+        vmId:
+          type: integer
+      required:
+        - userId
+        - vmId
+
+    DashboardStats:
+      type: object
+      properties:
+        totalClusters:
+          type: integer
+        onlineClusters:
+          type: integer
+        totalVms:
+          type: integer
+        runningVms:
+          type: integer
+        stoppedVms:
+          type: integer
+        totalTenants:
+          type: integer
+        activeTenants:
+          type: integer
+        totalUsers:
+          type: integer
+        activeUsers:
+          type: integer
+      required:
+        - totalClusters
+        - onlineClusters
+        - totalVms
+        - runningVms
+        - stoppedVms
+        - totalTenants
+        - activeTenants
+        - totalUsers
+        - activeUsers
+
+    ActivityEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        eventType:
+          type: string
+        description:
+          type: string
+        vmId:
+          type: ["integer", "null"]
+        vmName:
+          type: ["string", "null"]
+        userId:
+          type: ["integer", "null"]
+        userName:
+          type: ["string", "null"]
+        tenantId:
+          type: ["integer", "null"]
+        tenantName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - eventType
+        - description
+        - createdAt
