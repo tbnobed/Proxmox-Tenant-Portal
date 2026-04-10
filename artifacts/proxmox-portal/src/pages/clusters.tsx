@@ -130,7 +130,7 @@ export default function ClustersPage() {
         setSyncingId(null);
       },
       onError: (err: any) => {
-        const msg = err?.response?.data?.error ?? "Could not connect to Proxmox";
+        const msg = err?.data?.error ?? err?.message ?? "Could not connect to Proxmox";
         toast({ title: "Sync failed", description: msg, variant: "destructive" });
         setSyncingId(null);
       },

@@ -211,6 +211,10 @@ router.post("/clusters/:id/sync", async (req, res): Promise<void> => {
     );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("Proxmox sync error for cluster", cluster.id, cluster.host, ":", message);
+    if (err instanceof Error && err.stack) {
+      console.error(err.stack);
+    }
     await db
       .update(clustersTable)
       .set({ status: "offline" })

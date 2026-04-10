@@ -98,10 +98,15 @@ async function authenticate(
   });
 
   if (status !== 200) {
-    const msg = typeof data === "object" && data !== null && "errors" in data
-      ? JSON.stringify((data as Record<string, unknown>).errors)
-      : "Authentication failed";
-    throw new Error(`Proxmox auth failed (${status}): ${msg}`);
+    let msg = "Authentication failed";
+    if (typeof data === "object" && data !== null) {
+      const d = data as Record<string, unknown>;
+      if ("errors" in d) msg = JSON.stringify(d.errors);
+      else if ("data" in d) msg = JSON.stringify(d.data);
+      else msg = JSON.stringify(d);
+    }
+    console.error(`Proxmox auth response (${status}):`, JSON.stringify(data));
+    throw new Error(`Proxmox auth failed (HTTP ${status}): ${msg}`);
   }
 
   const result = data as { data: { ticket: string; CSRFPreventionToken: string } };
