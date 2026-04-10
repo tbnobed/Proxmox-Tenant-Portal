@@ -58,6 +58,7 @@
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
     const vmName = decodeURIComponent(params.get("name") || "VM");
+    const vncPassword = params.get("password") || "";
 
     document.getElementById("vmTitle").textContent = vmName + " Console";
     document.title = vmName + " - Console";
@@ -99,6 +100,7 @@
       try {
         rfb = new RFB(document.getElementById("screen"), wsUrl, {
           wsProtocols: ["binary"],
+          credentials: { password: vncPassword },
         });
         rfb.scaleViewport = true;
         rfb.resizeSession = true;
@@ -116,6 +118,14 @@
             showError("Console connection lost. Close this tab and reconnect from the portal.");
           } else {
             updateStatus("Disconnected");
+          }
+        });
+
+        rfb.addEventListener("credentialsrequired", () => {
+          if (vncPassword) {
+            rfb.sendCredentials({ password: vncPassword });
+          } else {
+            showError("VNC password required but not provided.");
           }
         });
 

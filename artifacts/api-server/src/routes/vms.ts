@@ -262,6 +262,7 @@ router.post("/vms/:id/console", async (req, res): Promise<void> => {
       vmId: vm.vmId,
       node: vm.node,
       type: vm.type,
+      vncTicket: result.ticket,
     });
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);

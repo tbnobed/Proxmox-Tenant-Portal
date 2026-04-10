@@ -25,7 +25,8 @@ export default function VmConsolePage() {
     try {
       const result = await consoleMutation.mutateAsync({ id });
       const base = import.meta.env.BASE_URL || "/";
-      const url = `${base}vnc.html?token=${result.token}&name=${encodeURIComponent(result.vmName)}`;
+      const vncTicket = (result as any).vncTicket || "";
+      const url = `${base}vnc.html?token=${result.token}&name=${encodeURIComponent(result.vmName)}&password=${encodeURIComponent(vncTicket)}`;
 
       if (mode === "tab") {
         window.open(url, `vnc-${id}`, "noopener");
