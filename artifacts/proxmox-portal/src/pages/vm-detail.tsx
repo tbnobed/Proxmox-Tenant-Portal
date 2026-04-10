@@ -8,7 +8,7 @@ import {
   getGetDashboardStatsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Play, Square, RotateCcw, Cpu, MemoryStick, HardDrive, Network, Server, Building2 } from "lucide-react";
+import { ArrowLeft, Play, Square, RotateCcw, Cpu, MemoryStick, HardDrive, Network, Server, Building2, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -77,6 +77,12 @@ export default function VmDetailPage() {
         )}
         {vm && (
           <div className="flex items-center gap-2 shrink-0">
+            <Link href={`/vms/${id}/console`}>
+              <Button size="sm" variant="outline">
+                <Monitor className="w-3.5 h-3.5 mr-1.5 text-primary" />
+                Console
+              </Button>
+            </Link>
             {vm.status !== "running" && (
               <Button size="sm" variant="outline" disabled={!!actioning} onClick={() => handleAction("start")}>
                 <Play className="w-3.5 h-3.5 mr-1.5 text-green-400" />

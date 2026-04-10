@@ -1,7 +1,7 @@
 import https from "node:https";
 import http from "node:http";
 
-interface ProxmoxAuth {
+export interface ProxmoxAuth {
   ticket: string;
   csrfToken: string;
 }
@@ -38,6 +38,12 @@ export interface SyncedVm {
   memoryMb: number | null;
   diskGb: number | null;
   tags: string | null;
+}
+
+export interface VncTicketResult {
+  ticket: string;
+  port: string;
+  cert: string;
 }
 
 function request(
@@ -86,7 +92,7 @@ function request(
   });
 }
 
-async function authenticate(
+export async function authenticate(
   host: string,
   port: number,
   username: string,
@@ -140,6 +146,90 @@ async function apiGet<T>(
   }
 
   return (data as { data: T }).data;
+}
+
+async function apiPost<T>(
+  host: string,
+  port: number,
+  path: string,
+  auth: ProxmoxAuth,
+  body?: string
+): Promise<T> {
+  const url = `https://${host}:${port}${path}`;
+  const headers: Record<string, string> = {
+    Cookie: `PVEAuthCookie=${auth.ticket}`,
+    CSRFPreventionToken: auth.csrfToken,
+  };
+  if (body) {
+    headers["Content-Type"] = "application/x-www-form-urlencoded";
+  }
+  const { status, data } = await request(url, {
+    method: "POST",
+    headers,
+    body: body ?? "",
+  });
+
+  if (status !== 200) {
+    const errMsg = typeof data === "object" && data !== null
+      ? JSON.stringify(data)
+      : String(data);
+    throw new Error(`Proxmox API error (${status}) for ${path}: ${errMsg}`);
+  }
+
+  return (data as { data: T }).data;
+}
+
+export async function performVmAction(
+  host: string,
+  port: number,
+  username: string,
+  password: string,
+  realm: string,
+  node: string,
+  vmId: number,
+  type: string,
+  action: string
+): Promise<string> {
+  const auth = await authenticate(host, port, username, password, realm);
+  const vmType = type === "lxc" ? "lxc" : "qemu";
+
+  const actionMap: Record<string, string> = {
+    start: "start",
+    stop: "stop",
+    reboot: "reboot",
+    shutdown: "shutdown",
+    reset: "reset",
+    suspend: "suspend",
+    resume: "resume",
+  };
+
+  const proxmoxAction = actionMap[action];
+  if (!proxmoxAction) {
+    throw new Error(`Unknown VM action: ${action}`);
+  }
+
+  const path = `/api2/json/nodes/${node}/${vmType}/${vmId}/status/${proxmoxAction}`;
+  const result = await apiPost<string>(host, port, path, auth);
+  return result;
+}
+
+export async function getVncTicket(
+  host: string,
+  port: number,
+  username: string,
+  password: string,
+  realm: string,
+  node: string,
+  vmId: number,
+  type: string
+): Promise<VncTicketResult & { auth: ProxmoxAuth }> {
+  const auth = await authenticate(host, port, username, password, realm);
+  const vmType = type === "lxc" ? "lxc" : "qemu";
+  const path = `/api2/json/nodes/${node}/${vmType}/${vmId}/vncproxy`;
+  const result = await apiPost<VncTicketResult>(
+    host, port, path, auth, "websocket=1"
+  );
+  return { ...result, auth };
 }
 
 export async function syncFromProxmox(

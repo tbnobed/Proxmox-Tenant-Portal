@@ -570,6 +570,37 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /vms/{id}/console:
+    post:
+      operationId: vmConsole
+      tags: [vms]
+      summary: Get VNC console connection token for a VM
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Console connection token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VmConsoleResult"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Proxmox connection error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # Access
   /access/tenant-vms:
     get:
@@ -1090,6 +1121,26 @@ components:
         - message
         - vmId
         - action
+
+    VmConsoleResult:
+      type: object
+      properties:
+        token:
+          type: string
+        vmName:
+          type: string
+        vmId:
+          type: integer
+        node:
+          type: string
+        type:
+          type: string
+      required:
+        - token
+        - vmName
+        - vmId
+        - node
+        - type
 
     TenantVmAccess:
       type: object

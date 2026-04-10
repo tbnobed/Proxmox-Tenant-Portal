@@ -31,3 +31,4 @@ export * from "./userVmAccess";
 export * from "./vm";
 export * from "./vmActionBody";
 export * from "./vmActionResult";
+export * from "./vmConsoleResult";

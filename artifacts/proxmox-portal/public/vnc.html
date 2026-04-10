@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VM Console</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: system-ui, -apple-system, sans-serif; }
+    #status {
+      position: fixed; top: 0; left: 0; right: 0;
+      padding: 12px 20px; background: #1a1a2e; color: #888;
+      font-size: 13px; z-index: 10; display: flex;
+      align-items: center; gap: 10px; border-bottom: 1px solid #2a2a3e;
+    }
+    #status .dot { width: 8px; height: 8px; border-radius: 50%; background: #666; }
+    #status .dot.connected { background: #4ade80; }
+    #status .dot.error { background: #f87171; }
+    #status .title { font-weight: 600; color: #e0e0e0; }
+    #status .info { flex: 1; }
+    #status button {
+      background: #2563eb; color: white; border: none; border-radius: 6px;
+      padding: 6px 14px; cursor: pointer; font-size: 13px;
+    }
+    #status button:hover { background: #1d4ed8; }
+    #screen { position: absolute; top: 42px; bottom: 0; left: 0; right: 0; }
+    #error-msg {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      color: #f87171; text-align: center; font-size: 16px;
+    }
+    #loading {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      color: #888; text-align: center; font-size: 16px;
+    }
+    #loading .spinner {
+      display: inline-block; width: 40px; height: 40px;
+      border: 3px solid #333; border-top-color: #2563eb;
+      border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="status">
+    <span class="dot" id="statusDot"></span>
+    <span class="title" id="vmTitle">VM Console</span>
+    <span class="info" id="statusText">Initializing...</span>
+    <button onclick="sendCtrlAltDel()">Ctrl+Alt+Del</button>
+  </div>
+  <div id="screen"></div>
+  <div id="loading">
+    <div class="spinner"></div>
+    <div>Connecting to console...</div>
+  </div>
+  <div id="error-msg" style="display:none"></div>
+
+  <script type="module">
+    import RFB from "https://cdn.jsdelivr.net/npm/@niccolosalvato/novnc@1.5.0/core/rfb.min.js";
+
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    const vmName = decodeURIComponent(params.get("name") || "VM");
+
+    document.getElementById("vmTitle").textContent = vmName + " Console";
+    document.title = vmName + " - Console";
+
+    if (!token) {
+      showError("No console token provided. Please launch the console from the portal.");
+    } else {
+      connect(token);
+    }
+
+    let rfb = null;
+
+    function connect(token) {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.host}/api/vnc?token=${token}`;
+
+      try {
+        rfb = new RFB(document.getElementById("screen"), wsUrl, {});
+        rfb.scaleViewport = true;
+        rfb.resizeSession = true;
+
+        rfb.addEventListener("connect", () => {
+          document.getElementById("loading").style.display = "none";
+          document.getElementById("statusDot").className = "dot connected";
+          document.getElementById("statusText").textContent = "Connected";
+        });
+
+        rfb.addEventListener("disconnect", (e) => {
+          document.getElementById("statusDot").className = "dot error";
+          if (!e.detail.clean) {
+            document.getElementById("statusText").textContent = "Connection lost";
+            showError("Console connection lost. Close this tab and reconnect from the portal.");
+          } else {
+            document.getElementById("statusText").textContent = "Disconnected";
+          }
+        });
+
+        rfb.addEventListener("securityfailure", (e) => {
+          showError("Security failure: " + (e.detail.reason || "Unknown"));
+        });
+      } catch (err) {
+        showError("Failed to connect: " + err.message);
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById("loading").style.display = "none";
+      const el = document.getElementById("error-msg");
+      el.textContent = msg;
+      el.style.display = "block";
+    }
+
+    window.sendCtrlAltDel = function() {
+      if (rfb) rfb.sendCtrlAltDel();
+    };
+  </script>
+</body>
+</html>

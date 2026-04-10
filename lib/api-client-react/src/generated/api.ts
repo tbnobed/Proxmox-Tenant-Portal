@@ -42,6 +42,7 @@ import type {
   Vm,
   VmActionBody,
   VmActionResult,
+  VmConsoleResult,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -2032,6 +2033,90 @@ export const useVmAction = <
   TContext
 > => {
   return useMutation(getVmActionMutationOptions(options));
+};
+
+/**
+ * @summary Get VNC console connection token for a VM
+ */
+export const getVmConsoleUrl = (id: number) => {
+  return `/api/vms/${id}/console`;
+};
+
+export const vmConsole = async (
+  id: number,
+  options?: RequestInit,
+): Promise<VmConsoleResult> => {
+  return customFetch<VmConsoleResult>(getVmConsoleUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getVmConsoleMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof vmConsole>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof vmConsole>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["vmConsole"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof vmConsole>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return vmConsole(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type VmConsoleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof vmConsole>>
+>;
+
+export type VmConsoleMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get VNC console connection token for a VM
+ */
+export const useVmConsole = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof vmConsole>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof vmConsole>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getVmConsoleMutationOptions(options));
 };
 
 /**

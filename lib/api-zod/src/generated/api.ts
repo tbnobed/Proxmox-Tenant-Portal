@@ -440,6 +440,21 @@ export const VmActionResponse = zod.object({
 });
 
 /**
+ * @summary Get VNC console connection token for a VM
+ */
+export const VmConsoleParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const VmConsoleResponse = zod.object({
+  token: zod.string(),
+  vmName: zod.string(),
+  vmId: zod.number(),
+  node: zod.string(),
+  type: zod.string(),
+});
+
+/**
  * @summary List all tenant-VM access grants
  */
 export const ListTenantVmAccessResponseItem = zod.object({

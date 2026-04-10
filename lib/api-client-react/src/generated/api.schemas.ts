@@ -230,6 +230,14 @@ export interface VmActionResult {
   action: string;
 }
 
+export interface VmConsoleResult {
+  token: string;
+  vmName: string;
+  vmId: number;
+  node: string;
+  type: string;
+}
+
 export interface TenantVmAccess {
   id: number;
   tenantId: number;

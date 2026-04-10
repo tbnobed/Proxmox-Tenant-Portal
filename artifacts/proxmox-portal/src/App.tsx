@@ -15,6 +15,7 @@ import UserDetailPage from "@/pages/user-detail";
 import VmsPage from "@/pages/vms";
 import VmDetailPage from "@/pages/vm-detail";
 import AccessPage from "@/pages/access";
+import VmConsolePage from "@/pages/vm-console";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,6 +39,7 @@ function Router() {
         <Route path="/users/:id" component={UserDetailPage} />
         <Route path="/vms" component={VmsPage} />
         <Route path="/vms/:id" component={VmDetailPage} />
+        <Route path="/vms/:id/console" component={VmConsolePage} />
         <Route path="/access" component={AccessPage} />
         <Route component={NotFound} />
       </Switch>

@@ -13,8 +13,18 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 - **Tenants**: Organizational units with user and VM assignment
 - **Users**: Roles (admin/operator/viewer), tenant membership, per-user VM access
 - **VMs**: Cross-cluster VM list, start/stop/reboot actions, filtering
+- **VM Console**: VNC console viewer via noVNC (WebSocket proxy to Proxmox VNC)
+- **Real Proxmox Integration**: Sync VMs, send start/stop/reboot commands to actual Proxmox API
 - **Access Control**: Grant/revoke tenant-VM and user-VM access
 - **Dashboard**: Stats, running/stopped counts, recent activity feed
+
+### Proxmox Integration Details
+- `proxmox-client.ts`: Handles auth (ticket API), node discovery, VM sync, VM actions, and VNC ticket generation
+- Uses `Content-Length` header (not chunked TE) for compatibility with Proxmox API
+- Self-signed cert support via `rejectUnauthorized: false`
+- `vnc-proxy.ts`: WebSocket proxy that bridges browser noVNC client to Proxmox VNC WebSocket
+- Console uses a standalone `vnc.html` page loading noVNC from CDN (avoids bundler compatibility issues)
+- Token-based session management for VNC connections (120s TTL)
 
 ## Stack
 
@@ -29,6 +39,7 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 - **Build**: esbuild (CJS bundle)
 - **Frontend**: React + Vite + TailwindCSS v4 (dark mode first)
 - **Routing**: wouter
+- **WebSocket**: ws (for VNC proxy)
 
 ## Key Commands
 
@@ -39,22 +50,32 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
 ## DB Schema (lib/db/src/schema/)
-- `clusters` — Proxmox cluster connections
+- `clusters` — Proxmox cluster connections (host, port, credentials, realm)
 - `tenants` — Organizations
 - `users` — Portal users with roles
-- `vms` — VM records synced from clusters
+- `vms` — VM records synced from clusters (vmId, node, type, status, specs)
 - `tenant_vm_access` — Tenant-VM access grants
 - `user_vm_access` — User-VM access grants
 - `activity` — Audit/activity log
 
 ## API Routes (artifacts/api-server/src/routes/)
-- `/clusters` — CRUD + sync
+- `/clusters` — CRUD + sync from Proxmox
 - `/tenants` — CRUD + summary
 - `/users` — CRUD
-- `/vms` — CRUD + actions (start/stop/reboot)
+- `/vms` — CRUD + actions (start/stop/reboot via Proxmox API) + console (VNC ticket)
 - `/access/tenant-vms` — Grant/revoke
 - `/access/user-vms` — Grant/revoke
 - `/dashboard/stats` — Aggregated stats
 - `/dashboard/activity` — Recent events
+- `/vnc` — WebSocket proxy endpoint for VNC connections
+
+## Frontend Pages (artifacts/proxmox-portal/src/pages/)
+- `dashboard.tsx` — Overview stats and activity
+- `clusters.tsx` / `cluster-detail.tsx` — Cluster management + sync
+- `tenants.tsx` / `tenant-detail.tsx` — Tenant management
+- `users.tsx` / `user-detail.tsx` — User management
+- `vms.tsx` / `vm-detail.tsx` — VM list and detail with actions
+- `vm-console.tsx` — VNC console page (embed or new tab)
+- `access.tsx` — Access control management
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.

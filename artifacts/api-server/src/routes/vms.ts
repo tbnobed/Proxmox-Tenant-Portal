@@ -15,6 +15,9 @@ import {
   UpdateVmResponse,
   VmActionResponse,
 } from "@workspace/api-zod";
+import { performVmAction, getVncTicket, authenticate } from "../proxmox-client";
+import { createVncSession } from "../vnc-proxy";
+import crypto from "node:crypto";
 
 const router: IRouter = Router();
 
@@ -170,6 +173,31 @@ router.post("/vms/:id/action", async (req, res): Promise<void> => {
     return;
   }
 
+  const [cluster] = await db.select().from(clustersTable).where(eq(clustersTable.id, vm.clusterId));
+  if (!cluster?.password) {
+    res.status(400).json({ error: "Cluster credentials not available for this VM" });
+    return;
+  }
+
+  try {
+    await performVmAction(
+      cluster.host,
+      cluster.port,
+      cluster.username,
+      cluster.password,
+      cluster.realm,
+      vm.node,
+      vm.vmId,
+      vm.type,
+      action
+    );
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error(`Proxmox action failed: ${errMsg}`);
+    res.status(502).json({ error: `Proxmox action failed: ${errMsg}` });
+    return;
+  }
+
   await db.update(vmsTable).set({ status: newStatus }).where(eq(vmsTable.id, vm.id));
 
   const eventTypeMap: Record<string, string> = { start: "vm_start", stop: "vm_stop", reboot: "vm_reboot", shutdown: "vm_stop" };
@@ -181,6 +209,65 @@ router.post("/vms/:id/action", async (req, res): Promise<void> => {
   });
 
   res.json(VmActionResponse.parse({ success: true, message, vmId: vm.id, action }));
+});
+
+router.post("/vms/:id/console", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid VM id" });
+    return;
+  }
+
+  const [vm] = await db.select().from(vmsTable).where(eq(vmsTable.id, id));
+  if (!vm) {
+    res.status(404).json({ error: "VM not found" });
+    return;
+  }
+
+  const [cluster] = await db.select().from(clustersTable).where(eq(clustersTable.id, vm.clusterId));
+  if (!cluster?.password) {
+    res.status(400).json({ error: "Cluster credentials not available" });
+    return;
+  }
+
+  try {
+    const result = await getVncTicket(
+      cluster.host,
+      cluster.port,
+      cluster.username,
+      cluster.password,
+      cluster.realm,
+      vm.node,
+      vm.vmId,
+      vm.type
+    );
+
+    const token = crypto.randomBytes(32).toString("hex");
+    createVncSession(token, {
+      host: cluster.host,
+      port: cluster.port,
+      node: vm.node,
+      vmId: vm.vmId,
+      type: vm.type,
+      ticket: result.auth.ticket,
+      vncTicket: result.ticket,
+      vncPort: result.port,
+      csrfToken: result.auth.csrfToken,
+      createdAt: Date.now(),
+    });
+
+    res.json({
+      token,
+      vmName: vm.name,
+      vmId: vm.vmId,
+      node: vm.node,
+      type: vm.type,
+    });
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error(`Console ticket failed: ${errMsg}`);
+    res.status(502).json({ error: `Failed to get console ticket: ${errMsg}` });
+  }
 });
 
 export default router;
