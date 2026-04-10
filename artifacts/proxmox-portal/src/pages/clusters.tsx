@@ -129,8 +129,9 @@ export default function ClustersPage() {
         toast({ title: "Sync complete", description: `${result.synced} VMs synced (${result.added} added, ${result.updated} updated).` });
         setSyncingId(null);
       },
-      onError: () => {
-        toast({ title: "Sync failed", variant: "destructive" });
+      onError: (err: any) => {
+        const msg = err?.response?.data?.error ?? "Could not connect to Proxmox";
+        toast({ title: "Sync failed", description: msg, variant: "destructive" });
         setSyncingId(null);
       },
     });

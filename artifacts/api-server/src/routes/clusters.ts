@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import { db, clustersTable, vmsTable } from "@workspace/db";
+import { syncFromProxmox } from "../proxmox-client";
 import {
   CreateClusterBody,
   GetClusterParams,
@@ -133,9 +134,89 @@ router.post("/clusters/:id/sync", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Cluster not found" });
     return;
   }
-  // Real Proxmox sync would happen here — for now mark cluster as online
-  await db.update(clustersTable).set({ status: "online" }).where(eq(clustersTable.id, cluster.id));
-  res.json(SyncClusterResponse.parse({ synced: 0, added: 0, updated: 0, message: "Sync complete. Add VMs manually or configure Proxmox API credentials." }));
+
+  try {
+    const proxmoxVms = await syncFromProxmox(
+      cluster.host,
+      cluster.port,
+      cluster.username,
+      cluster.passwordHash,
+      cluster.realm
+    );
+
+    let added = 0;
+    let updated = 0;
+
+    const existingVms = await db
+      .select()
+      .from(vmsTable)
+      .where(eq(vmsTable.clusterId, cluster.id));
+
+    const existingByVmId = new Map(existingVms.map(v => [v.vmId, v]));
+    const seenVmIds = new Set<number>();
+
+    for (const pvm of proxmoxVms) {
+      seenVmIds.add(pvm.vmId);
+      const existing = existingByVmId.get(pvm.vmId);
+
+      if (existing) {
+        await db
+          .update(vmsTable)
+          .set({
+            name: pvm.name,
+            node: pvm.node,
+            type: pvm.type,
+            status: pvm.status,
+            cpus: pvm.cpus,
+            memoryMb: pvm.memoryMb,
+            diskGb: pvm.diskGb,
+            tags: pvm.tags,
+          })
+          .where(eq(vmsTable.id, existing.id));
+        updated++;
+      } else {
+        await db.insert(vmsTable).values({
+          vmId: pvm.vmId,
+          name: pvm.name,
+          node: pvm.node,
+          type: pvm.type,
+          status: pvm.status,
+          cpus: pvm.cpus,
+          memoryMb: pvm.memoryMb,
+          diskGb: pvm.diskGb,
+          tags: pvm.tags,
+          clusterId: cluster.id,
+        });
+        added++;
+      }
+    }
+
+    const removed = existingVms.filter(v => !seenVmIds.has(v.vmId));
+    for (const rv of removed) {
+      await db.delete(vmsTable).where(eq(vmsTable.id, rv.id));
+    }
+
+    await db
+      .update(clustersTable)
+      .set({ status: "online" })
+      .where(eq(clustersTable.id, cluster.id));
+
+    res.json(
+      SyncClusterResponse.parse({
+        synced: proxmoxVms.length,
+        added,
+        updated,
+        message: `Sync complete. ${added} added, ${updated} updated, ${removed.length} removed.`,
+      })
+    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    await db
+      .update(clustersTable)
+      .set({ status: "offline" })
+      .where(eq(clustersTable.id, cluster.id));
+    res.status(502).json({ error: `Failed to sync with Proxmox: ${message}` });
+  }
 });
 
 export default router;
