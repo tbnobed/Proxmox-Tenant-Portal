@@ -10,7 +10,7 @@ COPY lib/api-zod/package.json lib/api-zod/
 COPY lib/api-client-react/package.json lib/api-client-react/
 COPY artifacts/api-server/package.json artifacts/api-server/
 COPY artifacts/proxmox-portal/package.json artifacts/proxmox-portal/
-RUN pnpm install --frozen-lockfile --ignore-scripts
+RUN pnpm install --no-frozen-lockfile --ignore-scripts
 RUN pnpm rebuild esbuild
 
 FROM deps AS build
