@@ -4,6 +4,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { AppLayout } from "@/components/layout/app-layout";
+import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import LoginPage from "@/pages/login";
 import { useEffect } from "react";
 import DashboardPage from "@/pages/dashboard";
 import ClustersPage from "@/pages/clusters";
@@ -16,6 +18,7 @@ import VmsPage from "@/pages/vms";
 import VmDetailPage from "@/pages/vm-detail";
 import AccessPage from "@/pages/access";
 import VmConsolePage from "@/pages/vm-console";
+import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,7 +29,7 @@ const queryClient = new QueryClient({
   },
 });
 
-function Router() {
+function AppRouter() {
   return (
     <AppLayout>
       <Switch>
@@ -47,6 +50,24 @@ function Router() {
   );
 }
 
+function AuthGate() {
+  const { user, loading, refresh } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage onLogin={refresh} />;
+  }
+
+  return <AppRouter />;
+}
+
 function App() {
   useEffect(() => {
     document.documentElement.classList.add("dark");
@@ -55,9 +76,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
+        <AuthProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <AuthGate />
+          </WouterRouter>
+        </AuthProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

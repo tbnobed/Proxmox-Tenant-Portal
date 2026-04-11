@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { setupVncProxy, handleUpgrade } from "./vnc-proxy";
+import { seedDefaultAdmin } from "./seed-admin";
 
 const rawPort = process.env["PORT"];
 
@@ -18,13 +19,19 @@ if (Number.isNaN(port) || port <= 0) {
 
 const wss = setupVncProxy();
 
-const server = app.listen(port, (err) => {
+const server = app.listen(port, async (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
   }
 
   logger.info({ port }, "Server listening");
+
+  try {
+    await seedDefaultAdmin();
+  } catch (e) {
+    logger.error({ err: e }, "Failed to seed admin user");
+  }
 });
 
 server.on("upgrade", (req, socket, head) => {

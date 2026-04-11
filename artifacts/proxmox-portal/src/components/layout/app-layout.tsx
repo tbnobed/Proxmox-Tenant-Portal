@@ -6,9 +6,12 @@ import {
   Users, 
   Building2, 
   MonitorPlay,
-  ShieldAlert
+  ShieldAlert,
+  LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -25,6 +28,7 @@ const navItems = [
 
 export function AppLayout({ children }: AppLayoutProps) {
   const [location] = useLocation();
+  const { user, logout } = useAuth();
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -63,10 +67,27 @@ export function AppLayout({ children }: AppLayoutProps) {
       <div className="flex-1 md:pl-64 flex flex-col min-h-[100dvh]">
         <header className="h-16 border-b border-border flex items-center px-6 bg-card/50 backdrop-blur sticky top-0 z-20">
           <div className="flex-1" />
-          <div className="flex items-center gap-4">
-            <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">
-              A
-            </div>
+          <div className="flex items-center gap-3">
+            {user && (
+              <>
+                <div className="text-right hidden sm:block">
+                  <p className="text-sm font-medium text-foreground">{user.fullName || user.username}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{user.role}</p>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">
+                  {(user.fullName || user.username).charAt(0).toUpperCase()}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                  onClick={logout}
+                  title="Sign out"
+                >
+                  <LogOut className="w-4 h-4" />
+                </Button>
+              </>
+            )}
           </div>
         </header>
         <main className="flex-1 p-6 md:p-8 max-w-7xl mx-auto w-full">

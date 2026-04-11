@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, sql } from "drizzle-orm";
 import { db, usersTable, tenantsTable, userVmAccessTable } from "@workspace/db";
+import { createHashedPassword } from "./auth";
 import {
   CreateUserBody,
   GetUserParams,
@@ -42,9 +43,10 @@ router.post("/users", async (req, res): Promise<void> => {
     return;
   }
   const { password, ...rest } = parsed.data;
+  const hashedPw = await createHashedPassword(password);
   const [user] = await db.insert(usersTable).values({
     ...rest,
-    passwordHash: password,
+    passwordHash: hashedPw,
     status: "active",
   }).returning();
   const tenant = user.tenantId ? await db.select().from(tenantsTable).where(eq(tenantsTable.id, user.tenantId)) : [];
@@ -98,7 +100,7 @@ router.patch("/users/:id", async (req, res): Promise<void> => {
   if (rest.role != null) update.role = rest.role;
   if (rest.tenantId !== undefined) update.tenantId = rest.tenantId;
   if (rest.status != null) update.status = rest.status;
-  if (password != null) update.passwordHash = password;
+  if (password != null) update.passwordHash = await createHashedPassword(password);
 
   const [user] = await db.update(usersTable).set(update).where(eq(usersTable.id, params.data.id)).returning();
   if (!user) {

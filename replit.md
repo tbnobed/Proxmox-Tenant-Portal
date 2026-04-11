@@ -9,6 +9,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 A full-stack portal for managing multiple Proxmox clusters, tenants, users, and VM access control. Think OpenStack/vSphere but purpose-built for Proxmox.
 
 ### Features
+- **Authentication**: Session-based login/logout with password hashing (crypto.scrypt), auto-seeds default admin on first run
 - **Multi-cluster**: Register multiple Proxmox cluster endpoints
 - **Tenants**: Organizational units with user and VM assignment
 - **Users**: Roles (admin/operator/viewer), tenant membership, per-user VM access
