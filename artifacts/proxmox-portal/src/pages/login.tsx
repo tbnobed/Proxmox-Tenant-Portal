@@ -46,10 +46,10 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-olive/5 blur-3xl" />
-        <div className="absolute bottom-[-15%] right-[-5%] w-[400px] h-[400px] rounded-full bg-forest/8 blur-3xl" />
-        <div className="absolute top-[30%] right-[10%] w-[250px] h-[250px] rounded-full bg-olive/3 blur-2xl" />
-        <svg className="absolute inset-0 w-full h-full opacity-[0.03]" xmlns="http://www.w3.org/2000/svg">
+        <div className="absolute top-[-10%] left-[-5%] w-[600px] h-[600px] rounded-full bg-olive/15 blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-forest/20 blur-[100px]" />
+        <div className="absolute top-[20%] right-[15%] w-[300px] h-[300px] rounded-full bg-sand/5 blur-[80px]" />
+        <svg className="absolute inset-0 w-full h-full opacity-[0.07]" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
               <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-sand" />
