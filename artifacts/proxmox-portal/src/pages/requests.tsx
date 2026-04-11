@@ -3,6 +3,7 @@ import {
   useListRequests,
   useCreateRequest,
   useReviewRequest,
+  useListVms,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -109,6 +110,7 @@ export default function RequestsPage() {
       ...(filterType && filterType !== "all" ? { requestType: filterType } : {}),
     },
   );
+  const { data: vms } = useListVms();
   const createMutation = useCreateRequest();
   const reviewMutation = useReviewRequest();
 
@@ -234,8 +236,29 @@ export default function RequestsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label>VM Name *</Label>
-              <Input value={form.vmName} onChange={(e) => updateForm("vmName", e.target.value)} placeholder="e.g. web-server-01" />
+              <Label>VM *</Label>
+              <Select
+                value={form.vmName}
+                onValueChange={(vmName) => {
+                  const selectedVm = vms?.find((v) => v.name === vmName);
+                  setForm((prev) => ({
+                    ...prev,
+                    vmName,
+                    vmIpAddress: selectedVm?.ipAddress ?? "",
+                    clusterName: selectedVm?.clusterName ?? "",
+                    clusterIp: selectedVm?.clusterHost ?? "",
+                  }));
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Select a VM" /></SelectTrigger>
+                <SelectContent>
+                  {vms?.map((vm) => (
+                    <SelectItem key={vm.id} value={vm.name}>
+                      {vm.name} ({vm.clusterName})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label>VM IP Address *</Label>
@@ -246,12 +269,12 @@ export default function RequestsPage() {
               <Input value={form.portNumber} onChange={(e) => updateForm("portNumber", e.target.value)} placeholder="e.g. 443 or 8080-8090" />
             </div>
             <div className="space-y-1.5">
-              <Label>Cluster Name *</Label>
-              <Input value={form.clusterName} onChange={(e) => updateForm("clusterName", e.target.value)} placeholder="e.g. prod-cluster-1" />
+              <Label>Cluster Name</Label>
+              <Input value={form.clusterName} readOnly className="bg-muted/50" />
             </div>
             <div className="space-y-1.5">
-              <Label>Cluster IP *</Label>
-              <Input value={form.clusterIp} onChange={(e) => updateForm("clusterIp", e.target.value)} placeholder="e.g. 192.168.1.100" />
+              <Label>Cluster IP</Label>
+              <Input value={form.clusterIp} readOnly className="bg-muted/50" />
             </div>
           </div>
 

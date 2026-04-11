@@ -25,6 +25,7 @@ export interface Vm {
   os?: string | null;
   clusterId: number;
   clusterName: string;
+  clusterHost: string;
   /** @nullable */
   tenantId?: number | null;
   /** @nullable */

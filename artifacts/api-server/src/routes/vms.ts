@@ -31,6 +31,7 @@ async function enrichVm(vm: typeof vmsTable.$inferSelect) {
   return {
     ...vm,
     clusterName: cluster?.name ?? "Unknown",
+    clusterHost: cluster?.host ?? "Unknown",
     tenantName: tenant[0]?.name ?? null,
     createdAt: vm.createdAt.toISOString(),
     updatedAt: vm.updatedAt.toISOString(),
@@ -91,12 +92,13 @@ router.get("/vms", async (req, res): Promise<void> => {
 
   const clusters = await db.select().from(clustersTable);
   const tenants = await db.select().from(tenantsTable);
-  const clusterMap = Object.fromEntries(clusters.map(c => [c.id, c.name]));
+  const clusterMap = Object.fromEntries(clusters.map(c => [c.id, { name: c.name, host: c.host }]));
   const tenantMap = Object.fromEntries(tenants.map(t => [t.id, t.name]));
 
   const result = rows.map(vm => ({
     ...vm,
-    clusterName: clusterMap[vm.clusterId] ?? "Unknown",
+    clusterName: clusterMap[vm.clusterId]?.name ?? "Unknown",
+    clusterHost: clusterMap[vm.clusterId]?.host ?? "Unknown",
     tenantName: vm.tenantId ? tenantMap[vm.tenantId] ?? null : null,
     createdAt: vm.createdAt.toISOString(),
     updatedAt: vm.updatedAt.toISOString(),

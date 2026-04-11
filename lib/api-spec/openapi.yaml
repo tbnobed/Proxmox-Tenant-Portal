@@ -1104,6 +1104,8 @@ components:
           type: integer
         clusterName:
           type: string
+        clusterHost:
+          type: string
         tenantId:
           type: ["integer", "null"]
         tenantName:
@@ -1123,6 +1125,7 @@ components:
         - status
         - clusterId
         - clusterName
+        - clusterHost
         - createdAt
         - updatedAt
 
