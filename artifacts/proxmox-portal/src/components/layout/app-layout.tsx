@@ -8,10 +8,13 @@ import {
   MonitorPlay,
   ShieldAlert,
   Bell,
-  LogOut
+  LogOut,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useTheme } from "@/hooks/use-theme";
 import { Button } from "@/components/ui/button";
 const logoImg = `${import.meta.env.BASE_URL}proxhub-logo.png`;
 
@@ -32,6 +35,7 @@ const navItems = [
 export function AppLayout({ children }: AppLayoutProps) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -72,6 +76,15 @@ export function AppLayout({ children }: AppLayoutProps) {
         <header className="h-16 border-b border-border flex items-center px-6 bg-card/50 backdrop-blur sticky top-0 z-20">
           <div className="flex-1" />
           <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+              onClick={toggleTheme}
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </Button>
             {user && (
               <>
                 <div className="text-right hidden sm:block">
