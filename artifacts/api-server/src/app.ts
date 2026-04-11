@@ -4,6 +4,7 @@ import session from "express-session";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import authRouter from "./routes/auth";
+import notificationsRouter from "./routes/notifications";
 import { requireAuth } from "./middleware/auth";
 import { logger } from "./lib/logger";
 
@@ -48,5 +49,6 @@ app.use(
 
 app.use("/api", authRouter);
 app.use("/api", requireAuth, router);
+app.use("/api", requireAuth, notificationsRouter);
 
 export default app;

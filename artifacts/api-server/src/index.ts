@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { setupVncProxy, handleUpgrade } from "./vnc-proxy";
 import { seedDefaultAdmin } from "./seed-admin";
+import { startHealthDigestScheduler } from "./health-digest";
 
 const rawPort = process.env["PORT"];
 
@@ -32,6 +33,8 @@ const server = app.listen(port, async (err) => {
   } catch (e) {
     logger.error({ err: e }, "Failed to seed admin user");
   }
+
+  startHealthDigestScheduler();
 });
 
 server.on("upgrade", (req, socket, head) => {

@@ -19,6 +19,7 @@ import { performVmAction, getVncTicket, authenticate } from "../proxmox-client";
 import { createVncSession } from "../vnc-proxy";
 import { getSessionUser } from "../middleware/auth";
 import { requireAdmin } from "../middleware/auth";
+import { notifyVmAction } from "../notifications";
 import crypto from "node:crypto";
 
 const router: IRouter = Router();
@@ -111,6 +112,11 @@ router.post("/vms", requireAdmin, async (req, res): Promise<void> => {
   const [vm] = await db.insert(vmsTable).values(parsed.data).returning();
   const enriched = await enrichVm(vm);
   res.status(201).json(GetVmResponse.parse(enriched));
+
+  const sessionUser = getSessionUser(req);
+  import("../notifications").then(({ notifyVmCreated }) => {
+    notifyVmCreated(vm.name, vm.vmId, vm.type, vm.node, enriched.clusterName, sessionUser?.username ?? "system").catch(() => {});
+  });
 });
 
 router.get("/vms/:id", async (req, res): Promise<void> => {
@@ -272,6 +278,9 @@ router.post("/vms/:id/action", async (req, res): Promise<void> => {
   });
 
   res.json(VmActionResponse.parse({ success: true, message, vmId: vm.id, action }));
+
+  const performer = sessionUser?.username ?? "system";
+  notifyVmAction(vm.name, vm.vmId, action, vm.node, performer).catch(() => {});
 });
 
 router.post("/vms/:id/console", async (req, res): Promise<void> => {

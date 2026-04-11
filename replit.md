@@ -22,6 +22,7 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 - **Access Control**: Grant/revoke tenant-VM and user-VM access
 - **Dashboard**: Stats, running/stopped counts, recent activity feed, infrastructure health panel
 - **Health Monitoring**: Real-time health indicators across dashboard (infrastructure overview with expandable cluster/node details), clusters page (per-node health badge), and VMs page (health dot next to status). Health computed from CPU/RAM/disk thresholds. Utility: `lib/health.ts`
+- **Email Notifications (SendGrid)**: Sends email alerts to admin users on VM actions (start/stop/reboot), VM creation, user creation, access changes (grant/revoke), and health alerts. Daily health digest scheduler runs on configurable interval. Docker-portable: uses `SENDGRID_API_KEY` + `SENDGRID_FROM_EMAIL` env vars, falls back to Replit connector when available. Notification settings page at `/notifications` (admin only).
 
 ### Proxmox Integration Details
 - `proxmox-client.ts`: Handles auth (ticket API), node discovery, VM sync, VM actions, and VNC ticket generation
@@ -78,6 +79,9 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 - `/dashboard/activity` — Recent events
 - `/dashboard/health` — Live infrastructure health (admin only, fetches node statuses from all clusters)
 - `/vnc` — WebSocket proxy endpoint for VNC connections
+- `/notifications/status` — Email config status (admin only)
+- `/notifications/test` — Send test email (admin only)
+- `/notifications/digest` — Trigger health digest manually (admin only)
 
 ## Frontend Pages (artifacts/proxmox-portal/src/pages/)
 - `dashboard.tsx` — Overview stats and activity
@@ -87,5 +91,6 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 - `vms.tsx` / `vm-detail.tsx` — VM list and detail with actions
 - `vm-console.tsx` — VNC console page (embed or new tab)
 - `access.tsx` — Access control management
+- `notifications.tsx` — Email notification settings and testing (admin only)
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.

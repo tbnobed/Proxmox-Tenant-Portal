@@ -57,6 +57,11 @@ router.post("/users", async (req, res): Promise<void> => {
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   }));
+
+  const sessionUser = getSessionUser(req);
+  import("../notifications").then(({ notifyUserCreated }) => {
+    notifyUserCreated(user.username, user.role, sessionUser?.username ?? "system").catch(() => {});
+  });
 });
 
 router.get("/users/:id", async (req, res): Promise<void> => {

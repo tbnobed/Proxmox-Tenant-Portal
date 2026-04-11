@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, tenantVmAccessTable, userVmAccessTable, tenantsTable, usersTable, vmsTable } from "@workspace/db";
+import { notifyAccessChange } from "../notifications";
+import { getSessionUser } from "../middleware/auth";
 import {
   GrantTenantVmAccessBody,
   RevokeTenantVmAccessParams,
@@ -43,6 +45,8 @@ router.post("/access/tenant-vms", async (req, res): Promise<void> => {
     vmName: vm?.name ?? "Unknown",
     grantedAt: row.grantedAt.toISOString(),
   });
+  const sessionUser = getSessionUser(req);
+  notifyAccessChange("granted", "tenant", tenant?.name ?? "Unknown", vm?.name ?? "Unknown", sessionUser?.username ?? "system").catch(() => {});
 });
 
 router.delete("/access/tenant-vms/:id", async (req, res): Promise<void> => {
@@ -51,8 +55,15 @@ router.delete("/access/tenant-vms/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
+  const [existing] = await db.select().from(tenantVmAccessTable).where(eq(tenantVmAccessTable.id, params.data.id));
   await db.delete(tenantVmAccessTable).where(eq(tenantVmAccessTable.id, params.data.id));
   res.sendStatus(204);
+  if (existing) {
+    const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, existing.tenantId));
+    const [vm] = await db.select().from(vmsTable).where(eq(vmsTable.id, existing.vmId));
+    const sessionUser = getSessionUser(req);
+    notifyAccessChange("revoked", "tenant", tenant?.name ?? "Unknown", vm?.name ?? "Unknown", sessionUser?.username ?? "system").catch(() => {});
+  }
 });
 
 router.get("/access/user-vms", async (_req, res): Promise<void> => {
@@ -86,6 +97,8 @@ router.post("/access/user-vms", async (req, res): Promise<void> => {
     vmName: vm?.name ?? "Unknown",
     grantedAt: row.grantedAt.toISOString(),
   });
+  const sessionUser = getSessionUser(req);
+  notifyAccessChange("granted", "user", user?.fullName ?? user?.username ?? "Unknown", vm?.name ?? "Unknown", sessionUser?.username ?? "system").catch(() => {});
 });
 
 router.delete("/access/user-vms/:id", async (req, res): Promise<void> => {
@@ -94,8 +107,15 @@ router.delete("/access/user-vms/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
+  const [existing] = await db.select().from(userVmAccessTable).where(eq(userVmAccessTable.id, params.data.id));
   await db.delete(userVmAccessTable).where(eq(userVmAccessTable.id, params.data.id));
   res.sendStatus(204);
+  if (existing) {
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, existing.userId));
+    const [vm] = await db.select().from(vmsTable).where(eq(vmsTable.id, existing.vmId));
+    const sessionUser = getSessionUser(req);
+    notifyAccessChange("revoked", "user", user?.fullName ?? user?.username ?? "Unknown", vm?.name ?? "Unknown", sessionUser?.username ?? "system").catch(() => {});
+  }
 });
 
 export default router;

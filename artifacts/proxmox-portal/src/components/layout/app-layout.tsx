@@ -7,6 +7,7 @@ import {
   Building2, 
   MonitorPlay,
   ShieldAlert,
+  Bell,
   LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/users", label: "Users", icon: Users, adminOnly: true },
   { href: "/vms", label: "Virtual Machines", icon: MonitorPlay, adminOnly: false },
   { href: "/access", label: "Access Control", icon: ShieldAlert, adminOnly: true },
+  { href: "/notifications", label: "Notifications", icon: Bell, adminOnly: true },
 ];
 
 export function AppLayout({ children }: AppLayoutProps) {
