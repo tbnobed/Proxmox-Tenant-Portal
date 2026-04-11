@@ -108,6 +108,35 @@ export async function notifyAccessChange(
   await sendEmailToAdmins(`Access ${label}: ${targetName} → ${vmName}`, wrapHtml(`Access ${type.charAt(0).toUpperCase() + type.slice(1)}`, body));
 }
 
+export async function notifyInfrastructureRequest(
+  requestType: string,
+  priority: string,
+  vmName: string,
+  clusterName: string,
+  submittedBy: string,
+  tenantName: string | null,
+  description: string | null
+): Promise<void> {
+  const isFirewall = requestType === "firewall";
+  const typeLabel = isFirewall ? "Firewall Rule" : "Proxy Host";
+  const typeColor = isFirewall ? "#3b82f6" : "#a855f7";
+  const priorityColor = priority === "urgent" ? "#ef4444" : "#888";
+  const body = `
+    <p style="margin:0 0 12px;">A new infrastructure request was submitted:</p>
+    <table style="width:100%;border-collapse:collapse;">
+      <tr><td style="padding:6px 0;color:#888;width:120px;">Type</td><td style="padding:6px 0;"><span style="color:${typeColor};font-weight:600;">${typeLabel}</span></td></tr>
+      <tr><td style="padding:6px 0;color:#888;">Priority</td><td style="padding:6px 0;"><span style="color:${priorityColor};font-weight:600;text-transform:uppercase;">${priority}</span></td></tr>
+      <tr><td style="padding:6px 0;color:#888;">VM</td><td style="padding:6px 0;color:#E6CAA7;font-weight:600;">${vmName}</td></tr>
+      <tr><td style="padding:6px 0;color:#888;">Cluster</td><td style="padding:6px 0;color:#ccc;">${clusterName}</td></tr>
+      <tr><td style="padding:6px 0;color:#888;">Submitted by</td><td style="padding:6px 0;color:#ccc;">${submittedBy}</td></tr>
+      ${tenantName ? `<tr><td style="padding:6px 0;color:#888;">Tenant</td><td style="padding:6px 0;color:#ccc;">${tenantName}</td></tr>` : ""}
+      ${description ? `<tr><td style="padding:6px 0;color:#888;">Description</td><td style="padding:6px 0;color:#ccc;">${description}</td></tr>` : ""}
+      <tr><td style="padding:6px 0;color:#888;">Time</td><td style="padding:6px 0;color:#ccc;">${new Date().toLocaleString()}</td></tr>
+    </table>
+    <p style="margin:12px 0 0;color:#888;font-size:12px;">Log in to ProxHub to review this request.</p>`;
+  await sendEmailToAdmins(`${priority === "urgent" ? "URGENT " : ""}Infrastructure Request: ${typeLabel} — ${vmName}`, wrapHtml("Infrastructure Request Submitted", body));
+}
+
 export async function notifyVmCreated(
   vmName: string,
   vmId: number,

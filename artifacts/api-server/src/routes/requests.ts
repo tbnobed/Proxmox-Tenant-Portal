@@ -128,6 +128,18 @@ router.post("/requests", async (req, res): Promise<void> => {
     .returning();
 
   res.status(201).json(formatRequest(row));
+
+  import("../notifications").then(({ notifyInfrastructureRequest }) => {
+    notifyInfrastructureRequest(
+      row.requestType,
+      row.priority,
+      row.vmName,
+      row.clusterName,
+      row.requestedByName,
+      row.tenantName,
+      row.description
+    ).catch(() => {});
+  });
 });
 
 router.post("/requests/:id/review", requireAdmin, async (req, res): Promise<void> => {
