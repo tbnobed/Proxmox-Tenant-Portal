@@ -18,8 +18,8 @@ COPY . .
 ENV NODE_ENV=production
 ENV BASE_PATH=/
 ENV PORT=3000
-RUN pnpm --filter @workspace/proxmox-portal run build
-RUN pnpm --filter @workspace/api-server run build
+RUN pnpm --filter @workspace/proxmox-portal run build && \
+    pnpm --filter @workspace/api-server run build
 
 FROM node:20-slim AS production
 RUN corepack enable && corepack prepare pnpm@9 --activate
@@ -50,8 +50,8 @@ COPY lib/db/drizzle.config.ts ./lib/db/
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
-RUN addgroup --system proxhub && adduser --system --ingroup proxhub proxhub
-RUN chown -R proxhub:proxhub /app
+RUN addgroup --system proxhub && adduser --system --ingroup proxhub proxhub && \
+    chown -R proxhub:proxhub /app
 USER proxhub
 
 ENV NODE_ENV=production

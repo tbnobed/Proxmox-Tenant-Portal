@@ -15,3 +15,12 @@ screenshots
 .replit
 replit.nix
 replit.md
+artifact.toml
+.gitignore
+*.md
+!README.md
+.vscode
+.idea
+__tests__
+*.test.*
+*.spec.*
