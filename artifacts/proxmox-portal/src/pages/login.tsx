@@ -48,7 +48,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-3">
-            <img src={logoImg} alt="ProxHub" className="h-14 w-auto rounded-lg" />
+            <img src={logoImg} alt="ProxHub" className="h-28 w-auto rounded-lg" />
           </div>
           <p className="text-sm text-muted-foreground mt-1">Sign in to manage your infrastructure</p>
         </div>
