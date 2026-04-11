@@ -397,6 +397,11 @@ router.post("/clusters/:id/create-vm", requireOperatorOrAdmin, async (req, res):
     ? (req.body.tenantId ?? undefined)
     : sessionUser?.tenantId ?? undefined;
 
+  if (sessionUser?.userRole !== "admin" && !tenantId) {
+    res.status(403).json({ error: "You must be assigned to a tenant before creating VMs" });
+    return;
+  }
+
   if (!type || !node || !vmid || !name || !cores || !memory || !diskSize || !storage) {
     res.status(400).json({ error: "Missing required fields: type, node, vmid, name, cores, memory, diskSize, storage" });
     return;

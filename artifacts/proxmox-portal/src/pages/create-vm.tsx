@@ -258,6 +258,27 @@ export default function CreateVmPage() {
     }
   }
 
+  if (!isAdmin && !user?.tenantId) {
+    return (
+      <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setLocation("/vms")}>
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">Create Virtual Machine</h1>
+          </div>
+        </div>
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center">
+          <Server className="w-10 h-10 text-destructive mx-auto mb-3" />
+          <p className="text-foreground font-medium">Tenant Required</p>
+          <p className="text-sm text-muted-foreground mt-1">You must be assigned to a tenant before you can create VMs. Contact your administrator.</p>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => setLocation("/vms")}>Back to VMs</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-3">

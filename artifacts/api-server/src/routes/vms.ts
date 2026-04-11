@@ -114,6 +114,10 @@ router.post("/vms", requireOperatorOrAdmin, async (req, res): Promise<void> => {
   const sessionUser = getSessionUser(req);
   if (sessionUser?.userRole !== "admin") {
     parsed.data.tenantId = sessionUser?.tenantId ?? undefined;
+    if (!parsed.data.tenantId) {
+      res.status(403).json({ error: "You must be assigned to a tenant before creating VMs" });
+      return;
+    }
   }
 
   if (parsed.data.tenantId) {
