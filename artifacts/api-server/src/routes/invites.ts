@@ -110,6 +110,75 @@ router.get("/invites", requireAdmin, async (_req, res): Promise<void> => {
   })));
 });
 
+router.post("/invites/:id/resend", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid invite id" });
+    return;
+  }
+
+  const [invite] = await db.select().from(inviteTokensTable).where(eq(inviteTokensTable.id, id));
+  if (!invite) {
+    res.status(404).json({ error: "Invite not found" });
+    return;
+  }
+  if (invite.used) {
+    res.status(400).json({ error: "This invite has already been accepted" });
+    return;
+  }
+
+  const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const newToken = invite.expiresAt < new Date() ? generateToken() : invite.token;
+
+  await db.update(inviteTokensTable).set({
+    expiresAt: newExpiry,
+    ...(newToken !== invite.token ? { token: newToken } : {}),
+  }).where(eq(inviteTokensTable.id, id));
+
+  const baseUrl = getAppBaseUrl(req);
+  const inviteUrl = `${baseUrl}/invite/${newToken}`;
+
+  const tenant = invite.tenantId ? await db.select().from(tenantsTable).where(eq(tenantsTable.id, invite.tenantId)) : [];
+  const sessionUser = getSessionUser(req);
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#050505;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:600px;margin:0 auto;padding:32px 24px;">
+    <div style="text-align:center;margin-bottom:24px;">
+      <h2 style="color:#E6CAA7;margin:0;font-size:20px;">Reminder: You're Invited to ProxHub</h2>
+    </div>
+    <div style="background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:24px;color:#ccc;font-size:14px;line-height:1.6;">
+      <p style="margin:0 0 16px;">This is a reminder that you've been invited to join ProxHub — a Proxmox management portal.</p>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+        <tr><td style="padding:6px 0;color:#888;width:100px;">Role</td><td style="padding:6px 0;color:#E6CAA7;font-weight:600;text-transform:capitalize;">${invite.role}</td></tr>
+        ${tenant[0] ? `<tr><td style="padding:6px 0;color:#888;">Tenant</td><td style="padding:6px 0;color:#ccc;">${tenant[0].name}</td></tr>` : ""}
+        <tr><td style="padding:6px 0;color:#888;">Invited by</td><td style="padding:6px 0;color:#ccc;">${invite.invitedBy}</td></tr>
+        <tr><td style="padding:6px 0;color:#888;">Expires</td><td style="padding:6px 0;color:#ccc;">${newExpiry.toLocaleDateString()}</td></tr>
+      </table>
+      <div style="text-align:center;margin:24px 0;">
+        <a href="${inviteUrl}" style="display:inline-block;background:#53561F;color:#E6CAA7;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">Accept Invitation</a>
+      </div>
+      <p style="color:#666;font-size:12px;margin:16px 0 0;text-align:center;">This link expires in 7 days.</p>
+    </div>
+    <div style="text-align:center;margin-top:24px;">
+      <p style="color:#666;font-size:11px;margin:0;">Sent by ProxHub</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const sent = await sendEmail(invite.email, "Reminder: You're Invited to ProxHub", html);
+
+  res.json({
+    id: invite.id,
+    email: invite.email,
+    expiresAt: newExpiry.toISOString(),
+    emailSent: sent,
+  });
+});
+
 router.delete("/invites/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) {
