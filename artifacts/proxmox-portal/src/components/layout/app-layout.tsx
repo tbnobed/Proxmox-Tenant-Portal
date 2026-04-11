@@ -34,9 +34,9 @@ export function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="flex min-h-screen bg-background">
       <div className="w-64 border-r border-forest/40 bg-forest flex flex-col hidden md:flex fixed inset-y-0 z-10">
-        <div className="h-16 flex items-center px-5 border-b border-forest/40">
+        <div className="h-20 flex items-center px-5 border-b border-forest/40 bg-black">
           <Link href="/" className="flex items-center">
-            <img src={logoImg} alt="ProxHub" className="h-8 w-auto" />
+            <img src={logoImg} alt="ProxHub" className="h-16 w-auto" />
           </Link>
         </div>
         <nav className="flex-1 py-4 px-3 space-y-1">
