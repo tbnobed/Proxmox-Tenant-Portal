@@ -79,8 +79,8 @@ export default function VmConsolePage() {
           )}
           {iframeUrl && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-green-400 flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              <span className="text-xs text-olive flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-olive animate-pulse" />
                 Active
               </span>
               <Button size="sm" variant="outline" onClick={() => launchConsole("tab")}>
@@ -128,7 +128,7 @@ export default function VmConsolePage() {
               <p className="text-lg font-medium">VM Console</p>
               <p className="text-sm mt-1">Click "Open Console" to start the VNC session</p>
               {vm?.status !== "running" && vm && (
-                <p className="text-sm text-yellow-400 mt-3">
+                <p className="text-sm text-sand mt-3">
                   Note: VM is currently {vm.status}. Start it first for console access.
                 </p>
               )}

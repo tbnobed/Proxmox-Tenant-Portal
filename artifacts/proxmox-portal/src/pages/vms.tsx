@@ -21,9 +21,9 @@ import { cn } from "@/lib/utils";
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    running: "bg-green-500/10 text-green-400 border-green-500/20",
+    running: "bg-olive/20 text-sand border-olive/30",
     stopped: "bg-red-500/10 text-red-400 border-red-500/20",
-    paused: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+    paused: "bg-navy/40 text-sand border-navy/50",
   };
   return (
     <span className={cn("text-xs px-2 py-0.5 rounded border font-medium", map[status] ?? map.stopped)}>
@@ -178,7 +178,7 @@ export default function VmsPage() {
                           onClick={() => handleAction(vm, "start")}
                           title="Start"
                         >
-                          <Play className="w-3.5 h-3.5 text-green-400" />
+                          <Play className="w-3.5 h-3.5 text-olive" />
                         </Button>
                       )}
                       {vm.status === "running" && (
@@ -201,7 +201,7 @@ export default function VmsPage() {
                             onClick={() => handleAction(vm, "reboot")}
                             title="Reboot"
                           >
-                            <RotateCcw className="w-3.5 h-3.5 text-yellow-400" />
+                            <RotateCcw className="w-3.5 h-3.5 text-sand" />
                           </Button>
                         </>
                       )}

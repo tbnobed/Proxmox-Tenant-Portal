@@ -38,14 +38,14 @@ function StatCard({
 
 function ActivityItem({ event }: { event: { id: number; eventType: string; description: string; vmName?: string | null; userName?: string | null; tenantName?: string | null; createdAt: string } }) {
   const typeColors: Record<string, string> = {
-    vm_start: "bg-green-500/10 text-green-400",
+    vm_start: "bg-olive/20 text-sand",
     vm_stop: "bg-red-500/10 text-red-400",
-    vm_reboot: "bg-yellow-500/10 text-yellow-400",
-    vm_sync: "bg-blue-500/10 text-blue-400",
-    tenant_created: "bg-purple-500/10 text-purple-400",
-    user_created: "bg-cyan-500/10 text-cyan-400",
-    access_granted: "bg-green-500/10 text-green-400",
-    access_revoked: "bg-orange-500/10 text-orange-400",
+    vm_reboot: "bg-sand/15 text-sand",
+    vm_sync: "bg-sand/10 text-sand",
+    tenant_created: "bg-forest/40 text-sand",
+    user_created: "bg-sand/15 text-sand",
+    access_granted: "bg-olive/20 text-sand",
+    access_revoked: "bg-sand/15 text-sand",
   };
 
   const colorClass = typeColors[event.eventType] ?? "bg-muted text-muted-foreground";
@@ -86,28 +86,28 @@ export default function DashboardPage() {
             value={stats?.totalClusters}
             sub={stats ? `${stats.onlineClusters} online` : undefined}
             icon={Server}
-            color="bg-blue-500/10 text-blue-400"
+            color="bg-sand/10 text-sand"
           />
           <StatCard
             label="Virtual Machines"
             value={stats?.totalVms}
             sub={stats ? `${stats.runningVms} running` : undefined}
             icon={Monitor}
-            color="bg-green-500/10 text-green-400"
+            color="bg-olive/20 text-sand"
           />
           <StatCard
             label="Tenants"
             value={stats?.totalTenants}
             sub={stats ? `${stats.activeTenants} active` : undefined}
             icon={Building2}
-            color="bg-purple-500/10 text-purple-400"
+            color="bg-forest/40 text-sand"
           />
           <StatCard
             label="Users"
             value={stats?.totalUsers}
             sub={stats ? `${stats.activeUsers} active` : undefined}
             icon={Users}
-            color="bg-orange-500/10 text-orange-400"
+            color="bg-sand/15 text-sand"
           />
         </div>
       ) : (
@@ -117,7 +117,7 @@ export default function DashboardPage() {
             value={stats?.totalVms}
             sub={stats ? `${stats.runningVms} running` : undefined}
             icon={Monitor}
-            color="bg-green-500/10 text-green-400"
+            color="bg-olive/20 text-sand"
           />
         </div>
       )}
@@ -126,13 +126,13 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 gap-4">
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-center gap-2 mb-3">
-            <Play className="w-4 h-4 text-green-400" />
+            <Play className="w-4 h-4 text-olive" />
             <span className="text-sm font-medium text-foreground">Running VMs</span>
           </div>
           {stats === undefined ? (
             <Skeleton className="h-9 w-20" />
           ) : (
-            <p className="text-3xl font-bold text-green-400">{stats.runningVms}</p>
+            <p className="text-3xl font-bold text-olive">{stats.runningVms}</p>
           )}
         </div>
         <div className="rounded-lg border border-border bg-card p-4">

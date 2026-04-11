@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    active: "bg-green-500/10 text-green-400 border-green-500/20",
+    active: "bg-olive/20 text-sand border-olive/30",
     inactive: "bg-muted text-muted-foreground border-border",
     suspended: "bg-red-500/10 text-red-400 border-red-500/20",
   };
@@ -151,8 +151,8 @@ export default function TenantsPage() {
         <div className="space-y-3">
           {tenants?.map(t => (
             <div key={t.id} className="rounded-lg border border-border bg-card p-4 flex items-center gap-4">
-              <div className="w-9 h-9 rounded-md bg-purple-500/10 flex items-center justify-center shrink-0">
-                <Building2 className="w-5 h-5 text-purple-400" />
+              <div className="w-9 h-9 rounded-md bg-forest/40 flex items-center justify-center shrink-0">
+                <Building2 className="w-5 h-5 text-sand" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">

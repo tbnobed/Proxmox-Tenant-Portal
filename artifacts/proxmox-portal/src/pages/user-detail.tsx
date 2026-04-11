@@ -21,13 +21,13 @@ export default function UserDetailPage() {
   const userAccess = allUserVmAccess?.filter(a => a.userId === id) ?? [];
 
   const roleColors: Record<string, string> = {
-    admin: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-    operator: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+    admin: "bg-olive/15 text-sand border-olive/20",
+    operator: "bg-navy/40 text-sand border-navy/50",
     viewer: "bg-muted text-muted-foreground border-border",
   };
 
   const statusColors: Record<string, string> = {
-    active: "bg-green-500/10 text-green-400 border-green-500/20",
+    active: "bg-olive/20 text-sand border-olive/30",
     inactive: "bg-muted text-muted-foreground border-border",
     suspended: "bg-red-500/10 text-red-400 border-red-500/20",
   };

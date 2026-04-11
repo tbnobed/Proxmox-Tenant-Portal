@@ -15,14 +15,17 @@ import {
   getListUsersQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ShieldCheck, Plus, Trash2, Building2, Users, Check } from "lucide-react";
+import { ShieldCheck, Plus, Trash2, Building2, Users, Check, Monitor, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+
+type Tab = "tenants" | "users";
 
 export default function AccessPage() {
   const qc = useQueryClient();
@@ -37,6 +40,7 @@ export default function AccessPage() {
   const grantUserMutation = useGrantUserVmAccess();
   const revokeUserMutation = useRevokeUserVmAccess();
 
+  const [activeTab, setActiveTab] = useState<Tab>("tenants");
   const [tenantGrantOpen, setTenantGrantOpen] = useState(false);
   const [userGrantOpen, setUserGrantOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState("");
@@ -44,14 +48,12 @@ export default function AccessPage() {
   const [selectedVmsForTenant, setSelectedVmsForTenant] = useState<Set<number>>(new Set());
   const [selectedVmsForUser, setSelectedVmsForUser] = useState<Set<number>>(new Set());
   const [granting, setGranting] = useState(false);
+  const [searchFilter, setSearchFilter] = useState("");
 
   function toggleVm(set: Set<number>, vmId: number, setter: (s: Set<number>) => void) {
     const next = new Set(set);
-    if (next.has(vmId)) {
-      next.delete(vmId);
-    } else {
-      next.add(vmId);
-    }
+    if (next.has(vmId)) next.delete(vmId);
+    else next.add(vmId);
     setter(next);
   }
 
@@ -124,114 +126,249 @@ export default function AccessPage() {
     });
   }
 
+  const tenantGroups = tenantAccess
+    ? Object.entries(
+        tenantAccess.reduce<Record<string, typeof tenantAccess>>((g, a) => {
+          const key = a.tenantName ?? "Unknown";
+          if (!g[key]) g[key] = [];
+          g[key].push(a);
+          return g;
+        }, {})
+      ).filter(([name]) => !searchFilter || name.toLowerCase().includes(searchFilter.toLowerCase()))
+    : [];
+
+  const userGroups = userAccess
+    ? Object.entries(
+        userAccess.reduce<Record<string, typeof userAccess>>((g, a) => {
+          const key = a.userName ?? "Unknown";
+          if (!g[key]) g[key] = [];
+          g[key].push(a);
+          return g;
+        }, {})
+      ).filter(([name]) => !searchFilter || name.toLowerCase().includes(searchFilter.toLowerCase()))
+    : [];
+
+  const tenantCount = tenantAccess?.length ?? 0;
+  const userCount = userAccess?.length ?? 0;
+
   return (
     <div className="p-6 md:p-8 space-y-6">
-      <div className="flex items-center gap-2">
-        <ShieldCheck className="w-5 h-5 text-primary" />
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">Access Control</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Grant and revoke VM access for tenants and users</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-olive/20 flex items-center justify-center">
+            <ShieldCheck className="w-5 h-5 text-sand" />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">Access Control</h1>
+            <p className="text-sm text-muted-foreground">Manage VM permissions for tenants and users</p>
+          </div>
+        </div>
+        <Button
+          size="sm"
+          onClick={() => {
+            if (activeTab === "tenants") {
+              setSelectedTenant("");
+              setSelectedVmsForTenant(new Set());
+              setTenantGrantOpen(true);
+            } else {
+              setSelectedUser("");
+              setSelectedVmsForUser(new Set());
+              setUserGrantOpen(true);
+            }
+          }}
+        >
+          <Plus className="w-3.5 h-3.5 mr-1.5" />
+          Grant {activeTab === "tenants" ? "Tenant" : "User"} Access
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Tenant Grants</p>
+          <p className="text-2xl font-bold text-foreground">{tenantCount}</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">User Grants</p>
+          <p className="text-2xl font-bold text-foreground">{userCount}</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Tenants with Access</p>
+          <p className="text-2xl font-bold text-foreground">{tenantGroups.length}</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Users with Access</p>
+          <p className="text-2xl font-bold text-foreground">{userGroups.length}</p>
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="rounded-lg border border-border bg-card">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <div className="flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-purple-400" />
-              <h2 className="text-sm font-semibold text-foreground">Tenant Access</h2>
-              <span className="text-xs text-muted-foreground">{tenantAccess?.length ?? 0}</span>
-            </div>
-            <Button size="sm" variant="outline" onClick={() => { setSelectedTenant(""); setSelectedVmsForTenant(new Set()); setTenantGrantOpen(true); }}>
-              <Plus className="w-3.5 h-3.5 mr-1" /> Grant
-            </Button>
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className="flex items-center justify-between border-b border-border px-4">
+          <div className="flex">
+            <button
+              className={cn(
+                "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors",
+                activeTab === "tenants"
+                  ? "border-olive text-sand"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+              onClick={() => { setActiveTab("tenants"); setSearchFilter(""); }}
+            >
+              <Building2 className="w-4 h-4" />
+              Tenant Access
+              <span className={cn(
+                "text-xs px-1.5 py-0.5 rounded-full",
+                activeTab === "tenants" ? "bg-olive/20 text-sand" : "bg-muted text-muted-foreground"
+              )}>{tenantCount}</span>
+            </button>
+            <button
+              className={cn(
+                "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors",
+                activeTab === "users"
+                  ? "border-olive text-sand"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+              onClick={() => { setActiveTab("users"); setSearchFilter(""); }}
+            >
+              <Users className="w-4 h-4" />
+              User Access
+              <span className={cn(
+                "text-xs px-1.5 py-0.5 rounded-full",
+                activeTab === "users" ? "bg-olive/20 text-sand" : "bg-muted text-muted-foreground"
+              )}>{userCount}</span>
+            </button>
           </div>
-          {loadingTA ? (
-            <div className="p-4 space-y-2">
-              {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}
-            </div>
-          ) : !tenantAccess || tenantAccess.length === 0 ? (
-            <p className="text-sm text-muted-foreground p-4 text-center">No tenant access grants</p>
-          ) : (
-            <div className="divide-y divide-border">
-              {Object.entries(
-                tenantAccess.reduce<Record<string, typeof tenantAccess>>((groups, a) => {
-                  const key = a.tenantName ?? "Unknown";
-                  if (!groups[key]) groups[key] = [];
-                  groups[key].push(a);
-                  return groups;
-                }, {})
-              ).map(([tenantName, entries]) => (
-                <div key={tenantName} className="px-4 py-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Building2 className="w-3.5 h-3.5 text-purple-400" />
-                    <p className="text-sm font-semibold text-foreground">{tenantName}</p>
-                    <span className="text-xs text-muted-foreground">{entries.length} VM{entries.length !== 1 ? "s" : ""}</span>
-                  </div>
-                  <div className="space-y-1 ml-5">
-                    {entries.map(a => (
-                      <div key={a.id} className="flex items-center justify-between py-1">
-                        <span className="text-sm text-muted-foreground">{a.vmName}</span>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleRevokeTenant(a.id)}>
-                          <Trash2 className="w-3 h-3 text-destructive" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder={`Search ${activeTab}...`}
+              value={searchFilter}
+              onChange={e => setSearchFilter(e.target.value)}
+              className="h-8 w-48 pl-8 text-xs"
+            />
+          </div>
         </div>
 
-        <div className="rounded-lg border border-border bg-card">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-blue-400" />
-              <h2 className="text-sm font-semibold text-foreground">User Access</h2>
-              <span className="text-xs text-muted-foreground">{userAccess?.length ?? 0}</span>
-            </div>
-            <Button size="sm" variant="outline" onClick={() => { setSelectedUser(""); setSelectedVmsForUser(new Set()); setUserGrantOpen(true); }}>
-              <Plus className="w-3.5 h-3.5 mr-1" /> Grant
-            </Button>
-          </div>
-          {loadingUA ? (
-            <div className="p-4 space-y-2">
-              {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}
-            </div>
-          ) : !userAccess || userAccess.length === 0 ? (
-            <p className="text-sm text-muted-foreground p-4 text-center">No user access grants</p>
-          ) : (
-            <div className="divide-y divide-border">
-              {Object.entries(
-                userAccess.reduce<Record<string, typeof userAccess>>((groups, a) => {
-                  const key = a.userName ?? "Unknown";
-                  if (!groups[key]) groups[key] = [];
-                  groups[key].push(a);
-                  return groups;
-                }, {})
-              ).map(([userName, entries]) => (
-                <div key={userName} className="px-4 py-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Users className="w-3.5 h-3.5 text-blue-400" />
-                    <p className="text-sm font-semibold text-foreground">{userName}</p>
-                    <span className="text-xs text-muted-foreground">{entries.length} VM{entries.length !== 1 ? "s" : ""}</span>
-                  </div>
-                  <div className="space-y-1 ml-5">
-                    {entries.map(a => (
-                      <div key={a.id} className="flex items-center justify-between py-1">
-                        <span className="text-sm text-muted-foreground">{a.vmName}</span>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleRevokeUser(a.id)}>
-                          <Trash2 className="w-3 h-3 text-destructive" />
-                        </Button>
+        {activeTab === "tenants" && (
+          <>
+            {loadingTA ? (
+              <div className="p-4 space-y-3">
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full" />)}
+              </div>
+            ) : tenantGroups.length === 0 ? (
+              <div className="p-12 text-center">
+                <Building2 className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">
+                  {searchFilter ? "No matching tenants" : "No tenant access grants yet"}
+                </p>
+                {!searchFilter && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                    onClick={() => { setSelectedTenant(""); setSelectedVmsForTenant(new Set()); setTenantGrantOpen(true); }}
+                  >
+                    Grant tenant access
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div>
+                {tenantGroups.map(([tenantName, entries], idx) => (
+                  <div key={tenantName} className={cn(idx > 0 && "border-t border-border")}>
+                    <div className="flex items-center gap-3 px-4 py-3 bg-forest/15">
+                      <div className="w-7 h-7 rounded bg-olive/20 flex items-center justify-center">
+                        <Building2 className="w-3.5 h-3.5 text-sand" />
                       </div>
-                    ))}
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-foreground">{tenantName}</p>
+                      </div>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-olive/20 text-sand">
+                        {entries.length} VM{entries.length !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <div className="divide-y divide-border/50">
+                      {entries.map(a => (
+                        <div key={a.id} className="flex items-center gap-3 px-4 py-2 pl-14 hover:bg-secondary/30 transition-colors group">
+                          <Monitor className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span className="text-sm text-foreground flex-1">{a.vmName}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => handleRevokeTenant(a.id)}
+                          >
+                            <Trash2 className="w-3 h-3 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === "users" && (
+          <>
+            {loadingUA ? (
+              <div className="p-4 space-y-3">
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full" />)}
+              </div>
+            ) : userGroups.length === 0 ? (
+              <div className="p-12 text-center">
+                <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">
+                  {searchFilter ? "No matching users" : "No user access grants yet"}
+                </p>
+                {!searchFilter && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                    onClick={() => { setSelectedUser(""); setSelectedVmsForUser(new Set()); setUserGrantOpen(true); }}
+                  >
+                    Grant user access
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div>
+                {userGroups.map(([userName, entries], idx) => (
+                  <div key={userName} className={cn(idx > 0 && "border-t border-border")}>
+                    <div className="flex items-center gap-3 px-4 py-3 bg-forest/15">
+                      <div className="w-7 h-7 rounded-full bg-olive/20 flex items-center justify-center text-sand text-xs font-bold">
+                        {userName.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-foreground">{userName}</p>
+                      </div>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-olive/20 text-sand">
+                        {entries.length} VM{entries.length !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <div className="divide-y divide-border/50">
+                      {entries.map(a => (
+                        <div key={a.id} className="flex items-center gap-3 px-4 py-2 pl-14 hover:bg-secondary/30 transition-colors group">
+                          <Monitor className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span className="text-sm text-foreground flex-1">{a.vmName}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => handleRevokeUser(a.id)}
+                          >
+                            <Trash2 className="w-3 h-3 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <Dialog open={tenantGrantOpen} onOpenChange={setTenantGrantOpen}>

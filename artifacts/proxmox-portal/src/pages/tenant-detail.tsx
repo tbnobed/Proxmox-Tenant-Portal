@@ -6,13 +6,13 @@ import { cn } from "@/lib/utils";
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    running: "bg-green-500/10 text-green-400 border-green-500/20",
+    running: "bg-olive/20 text-sand border-olive/30",
     stopped: "bg-red-500/10 text-red-400 border-red-500/20",
-    paused: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-    active: "bg-green-500/10 text-green-400 border-green-500/20",
+    paused: "bg-navy/40 text-sand border-navy/50",
+    active: "bg-olive/20 text-sand border-olive/30",
     inactive: "bg-muted text-muted-foreground border-border",
-    admin: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-    operator: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+    admin: "bg-olive/15 text-sand border-olive/20",
+    operator: "bg-navy/40 text-sand border-navy/50",
     viewer: "bg-muted text-muted-foreground border-border",
   };
   return (
@@ -59,7 +59,7 @@ export default function TenantDetailPage() {
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-xs text-muted-foreground">Running</p>
-          <p className="text-2xl font-bold text-green-400 mt-1">{summary?.runningVms ?? "—"}</p>
+          <p className="text-2xl font-bold text-olive mt-1">{summary?.runningVms ?? "—"}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-xs text-muted-foreground">Stopped</p>

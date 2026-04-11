@@ -32,11 +32,11 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <div className="w-64 border-r border-border bg-card flex flex-col hidden md:flex fixed inset-y-0 z-10">
-        <div className="h-16 flex items-center px-6 border-b border-border">
-          <div className="flex items-center gap-2 text-primary">
+      <div className="w-64 border-r border-forest/40 bg-forest flex flex-col hidden md:flex fixed inset-y-0 z-10">
+        <div className="h-16 flex items-center px-6 border-b border-forest/40">
+          <div className="flex items-center gap-2 text-sand">
             <Server className="w-6 h-6" />
-            <span className="font-bold text-lg tracking-tight text-foreground">Proxmox Portal</span>
+            <span className="font-bold text-lg tracking-tight text-sand">Proxmox Portal</span>
           </div>
         </div>
         <nav className="flex-1 py-4 px-3 space-y-1">
@@ -51,8 +51,8 @@ export function AppLayout({ children }: AppLayoutProps) {
                   className={cn(
                     "flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium",
                     isActive 
-                      ? "bg-primary/10 text-primary" 
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                      ? "bg-olive/30 text-sand" 
+                      : "text-sand/60 hover:text-sand hover:bg-olive/20"
                   )}
                 >
                   <item.icon className="w-4 h-4" />
@@ -61,7 +61,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               );
             })}
         </nav>
-        <div className="p-4 border-t border-border text-xs text-muted-foreground">
+        <div className="p-4 border-t border-forest/40 text-xs text-sand/40">
           v0.1.0-alpha
         </div>
       </div>
@@ -76,7 +76,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                   <p className="text-sm font-medium text-foreground">{user.fullName || user.username}</p>
                   <p className="text-xs text-muted-foreground capitalize">{user.role}</p>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">
+                <div className="w-8 h-8 rounded-full bg-olive/30 text-olive flex items-center justify-center font-bold text-sm">
                   {(user.fullName || user.username).charAt(0).toUpperCase()}
                 </div>
                 <Button

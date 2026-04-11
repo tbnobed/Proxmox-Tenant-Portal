@@ -23,9 +23,9 @@ import { cn } from "@/lib/utils";
 
 function StatusBadge({ status }: { status: string }) {
   const variants: Record<string, string> = {
-    online: "bg-green-500/10 text-green-400 border-green-500/20",
+    online: "bg-olive/20 text-sand border-olive/30",
     offline: "bg-red-500/10 text-red-400 border-red-500/20",
-    unknown: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+    unknown: "bg-navy/40 text-sand border-navy/50",
   };
   return (
     <span className={cn("text-xs px-2 py-0.5 rounded border font-medium", variants[status] ?? variants.unknown)}>

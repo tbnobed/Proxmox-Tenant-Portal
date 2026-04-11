@@ -42,7 +42,8 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
-- **Frontend**: React + Vite + TailwindCSS v4 (dark mode first)
+- **Frontend**: React + Vite + TailwindCSS v4 (dark mode, black background)
+- **Color palette**: `#53561F` (olive), `#182D0C` (forest), `#E6CAA7` (sand), `#1C1B31` (navy) — defined as Tailwind tokens `olive`, `forest`, `sand`, `navy` in index.css. Background is pure black. No other accent colors (no blue/green/purple/cyan/yellow/orange).
 - **Routing**: wouter
 - **WebSocket**: ws (for VNC proxy)
 
