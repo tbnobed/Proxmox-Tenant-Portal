@@ -44,8 +44,21 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-olive/5 blur-3xl" />
+        <div className="absolute bottom-[-15%] right-[-5%] w-[400px] h-[400px] rounded-full bg-forest/8 blur-3xl" />
+        <div className="absolute top-[30%] right-[10%] w-[250px] h-[250px] rounded-full bg-olive/3 blur-2xl" />
+        <svg className="absolute inset-0 w-full h-full opacity-[0.03]" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-sand" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grid)" />
+        </svg>
+      </div>
+      <div className="w-full max-w-sm relative z-10">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-3">
             <img src={logoImg} alt="ProxHub" className="h-28 w-auto rounded-lg" />
