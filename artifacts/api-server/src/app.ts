@@ -7,6 +7,7 @@ import authRouter from "./routes/auth";
 import passwordResetRouter from "./routes/password-reset";
 import invitesRouter from "./routes/invites";
 import notificationsRouter from "./routes/notifications";
+import tenantQuotasRouter from "./routes/tenant-quotas";
 import { requireAuth } from "./middleware/auth";
 import { logger } from "./lib/logger";
 
@@ -54,6 +55,7 @@ app.use("/api", passwordResetRouter);
 app.use("/api", invitesRouter);
 app.use("/api", requireAuth, router);
 app.use("/api", requireAuth, notificationsRouter);
+app.use("/api", requireAuth, tenantQuotasRouter);
 
 
 export default app;

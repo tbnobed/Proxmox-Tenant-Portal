@@ -93,6 +93,13 @@ router.patch("/tenants/:id", async (req, res): Promise<void> => {
   if (parsed.data.description !== undefined) update.description = parsed.data.description;
   if (parsed.data.contactEmail !== undefined) update.contactEmail = parsed.data.contactEmail;
   if (parsed.data.status != null) update.status = parsed.data.status;
+  if ((parsed.data as any).maxVms !== undefined) update.maxVms = (parsed.data as any).maxVms;
+  if ((parsed.data as any).maxCpusTotal !== undefined) update.maxCpusTotal = (parsed.data as any).maxCpusTotal;
+  if ((parsed.data as any).maxMemoryMbTotal !== undefined) update.maxMemoryMbTotal = (parsed.data as any).maxMemoryMbTotal;
+  if ((parsed.data as any).maxDiskGbTotal !== undefined) update.maxDiskGbTotal = (parsed.data as any).maxDiskGbTotal;
+  if ((parsed.data as any).maxCpusPerVm !== undefined) update.maxCpusPerVm = (parsed.data as any).maxCpusPerVm;
+  if ((parsed.data as any).maxMemoryMbPerVm !== undefined) update.maxMemoryMbPerVm = (parsed.data as any).maxMemoryMbPerVm;
+  if ((parsed.data as any).maxDiskGbPerVm !== undefined) update.maxDiskGbPerVm = (parsed.data as any).maxDiskGbPerVm;
 
   const [tenant] = await db.update(tenantsTable).set(update).where(eq(tenantsTable.id, params.data.id)).returning();
   if (!tenant) {

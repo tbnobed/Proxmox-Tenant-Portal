@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useListClusters, getListVmsQueryKey, getListClustersQueryKey } from "@workspace/api-client-react";
+import { useListClusters, useListTenants, getListVmsQueryKey, getListClustersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { ArrowLeft, Loader2, Server, Monitor, Box } from "lucide-react";
@@ -84,7 +84,9 @@ export default function CreateVmPage() {
   const [description, setDescription] = useState<string>("");
   const [rootPassword, setRootPassword] = useState<string>("");
   const [startAfterCreate, setStartAfterCreate] = useState<boolean>(false);
+  const [selectedTenantId, setSelectedTenantId] = useState<string>("");
 
+  const { data: tenants } = useListTenants();
   const [nodes, setNodes] = useState<string[]>([]);
   const [storages, setStorages] = useState<StorageInfo[]>([]);
   const [isos, setIsos] = useState<TemplateEntry[]>([]);
@@ -216,6 +218,7 @@ export default function CreateVmPage() {
           description: description || undefined,
           rootPassword: vmType === "lxc" && rootPassword ? rootPassword : undefined,
           startAfterCreate,
+          tenantId: selectedTenantId && selectedTenantId !== "__none__" ? parseInt(selectedTenantId) : undefined,
         }),
       });
 
@@ -322,6 +325,18 @@ export default function CreateVmPage() {
               />
               {loadingVmid && <Loader2 className="absolute right-2 top-2.5 w-4 h-4 animate-spin text-muted-foreground" />}
             </div>
+          </div>
+          <div>
+            <Label>Assign to Tenant</Label>
+            <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="No tenant (unassigned)" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">No tenant</SelectItem>
+                {tenants?.map(t => (
+                  <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>

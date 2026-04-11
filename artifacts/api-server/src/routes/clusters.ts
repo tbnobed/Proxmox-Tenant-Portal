@@ -390,11 +390,21 @@ router.post("/clusters/:id/create-vm", async (req, res): Promise<void> => {
   const [cluster] = await db.select().from(clustersTable).where(eq(clustersTable.id, params.data.id));
   if (!cluster) { res.status(404).json({ error: "Cluster not found" }); return; }
 
-  const { type, node, vmid, name, cores, memory, diskSize, storage, iso, template, ostype, bridge, startAfterCreate, rootPassword, sockets, vcpus, balloon, description, vlan } = req.body;
+  const { type, node, vmid, name, cores, memory, diskSize, storage, iso, template, ostype, bridge, startAfterCreate, rootPassword, sockets, vcpus, balloon, description, vlan, tenantId } = req.body;
 
   if (!type || !node || !vmid || !name || !cores || !memory || !diskSize || !storage) {
     res.status(400).json({ error: "Missing required fields: type, node, vmid, name, cores, memory, diskSize, storage" });
     return;
+  }
+
+  if (tenantId) {
+    const { checkTenantQuota } = await import("../quota-check");
+    const totalCpus = type === "qemu" ? cores * (sockets || 1) : cores;
+    const quotaCheck = await checkTenantQuota(tenantId, totalCpus, memory, diskSize, cluster.id);
+    if (!quotaCheck.allowed) {
+      res.status(403).json({ error: quotaCheck.reason });
+      return;
+    }
   }
 
   try {
@@ -478,6 +488,7 @@ router.post("/clusters/:id/create-vm", async (req, res): Promise<void> => {
         memoryMb: memory,
         diskGb: diskSize,
         clusterId: cluster.id,
+        ...(tenantId ? { tenantId } : {}),
       });
 
       res.json({ success: true, upid: result.data?.data, type: "qemu", vmid });
@@ -554,6 +565,7 @@ router.post("/clusters/:id/create-vm", async (req, res): Promise<void> => {
         memoryMb: memory,
         diskGb: diskSize,
         clusterId: cluster.id,
+        ...(tenantId ? { tenantId } : {}),
       });
 
       res.json({ success: true, upid: result.data?.data, type: "lxc", vmid });

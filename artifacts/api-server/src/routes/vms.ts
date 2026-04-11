@@ -20,6 +20,7 @@ import { createVncSession } from "../vnc-proxy";
 import { getSessionUser } from "../middleware/auth";
 import { requireAdmin } from "../middleware/auth";
 import { notifyVmAction } from "../notifications";
+import { checkTenantQuota } from "../quota-check";
 import crypto from "node:crypto";
 
 const router: IRouter = Router();
@@ -109,6 +110,21 @@ router.post("/vms", requireAdmin, async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+
+  if (parsed.data.tenantId) {
+    const quotaCheck = await checkTenantQuota(
+      parsed.data.tenantId,
+      parsed.data.cpus ?? 1,
+      parsed.data.memoryMb ?? 1024,
+      parsed.data.diskGb ?? 10,
+      parsed.data.clusterId
+    );
+    if (!quotaCheck.allowed) {
+      res.status(403).json({ error: quotaCheck.reason });
+      return;
+    }
+  }
+
   const [vm] = await db.insert(vmsTable).values(parsed.data).returning();
   const enriched = await enrichVm(vm);
   res.status(201).json(GetVmResponse.parse(enriched));
