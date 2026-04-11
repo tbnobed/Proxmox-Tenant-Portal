@@ -67,6 +67,21 @@ function AdminRoute({ component: Component }: { component: React.ComponentType<a
   return <Component />;
 }
 
+function OperatorRoute({ component: Component }: { component: React.ComponentType<any> }) {
+  const { user } = useAuth();
+  if (user?.role !== "admin" && user?.role !== "operator") {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center space-y-2">
+          <p className="text-lg font-medium text-foreground">Access Denied</p>
+          <p className="text-sm text-muted-foreground">You don't have permission to view this page.</p>
+        </div>
+      </div>
+    );
+  }
+  return <Component />;
+}
+
 function AppRouter() {
   return (
     <AppLayout>
@@ -79,7 +94,7 @@ function AppRouter() {
         <Route path="/users">{() => <AdminRoute component={UsersPage} />}</Route>
         <Route path="/users/:id">{() => <AdminRoute component={UserDetailPage} />}</Route>
         <Route path="/vms" component={VmsPage} />
-        <Route path="/vms/create">{() => <AdminRoute component={CreateVmPage} />}</Route>
+        <Route path="/vms/create">{() => <OperatorRoute component={CreateVmPage} />}</Route>
         <Route path="/vms/:id" component={VmDetailPage} />
         <Route path="/vms/:id/console" component={VmConsolePage} />
         <Route path="/access">{() => <AdminRoute component={AccessPage} />}</Route>

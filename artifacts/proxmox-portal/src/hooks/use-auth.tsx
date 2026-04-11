@@ -6,6 +6,7 @@ interface AuthUser {
   email: string;
   fullName: string | null;
   role: string;
+  tenantId: number | null;
 }
 
 interface AuthContextValue {

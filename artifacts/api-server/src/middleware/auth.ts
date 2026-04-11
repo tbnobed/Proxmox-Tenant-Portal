@@ -38,6 +38,15 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
   next();
 }
 
+export function requireOperatorOrAdmin(req: Request, res: Response, next: NextFunction): void {
+  const role = (req.session as any)?.userRole;
+  if (role !== "admin" && role !== "operator") {
+    res.status(403).json({ error: "Operator or admin access required" });
+    return;
+  }
+  next();
+}
+
 export function getSessionUser(req: Request): { userId: number; userRole: string; tenantId: number | null } | null {
   const s = req.session as any;
   if (!s?.userId) return null;

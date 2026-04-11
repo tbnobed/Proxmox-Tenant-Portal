@@ -14,7 +14,7 @@ router.use(healthRouter);
 router.use(vmsRouter);
 router.use(dashboardRouter);
 
-router.use(requireAdmin, clustersRouter);
+router.use(clustersRouter);
 router.use(requireAdmin, tenantsRouter);
 router.use(requireAdmin, usersRouter);
 router.use(requireAdmin, accessRouter);

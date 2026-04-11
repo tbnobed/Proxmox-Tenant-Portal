@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, sql, and } from "drizzle-orm";
 import { db, clustersTable, vmsTable } from "@workspace/db";
+import { requireAdmin, requireOperatorOrAdmin, getSessionUser } from "../middleware/auth";
 import {
   syncFromProxmox,
   getNodeStatuses,
@@ -27,7 +28,7 @@ import {
 
 const router: IRouter = Router();
 
-router.get("/clusters", async (_req, res): Promise<void> => {
+router.get("/clusters", requireOperatorOrAdmin, async (_req, res): Promise<void> => {
   const rows = await db.select().from(clustersTable).orderBy(clustersTable.name);
   const vmCounts = await db
     .select({ clusterId: vmsTable.clusterId, count: sql<number>`count(*)::int` })
@@ -44,7 +45,7 @@ router.get("/clusters", async (_req, res): Promise<void> => {
   res.json(ListClustersResponse.parse(result));
 });
 
-router.post("/clusters", async (req, res): Promise<void> => {
+router.post("/clusters", requireAdmin, async (req, res): Promise<void> => {
   const parsed = CreateClusterBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -64,7 +65,7 @@ router.post("/clusters", async (req, res): Promise<void> => {
   }));
 });
 
-router.get("/clusters/:id", async (req, res): Promise<void> => {
+router.get("/clusters/:id", requireOperatorOrAdmin, async (req, res): Promise<void> => {
   const params = GetClusterParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -84,7 +85,7 @@ router.get("/clusters/:id", async (req, res): Promise<void> => {
   }));
 });
 
-router.patch("/clusters/:id", async (req, res): Promise<void> => {
+router.patch("/clusters/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = UpdateClusterParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -119,7 +120,7 @@ router.patch("/clusters/:id", async (req, res): Promise<void> => {
   }));
 });
 
-router.delete("/clusters/:id", async (req, res): Promise<void> => {
+router.delete("/clusters/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = DeleteClusterParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -133,7 +134,7 @@ router.delete("/clusters/:id", async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
-router.get("/clusters/:id/nodes", async (req, res): Promise<void> => {
+router.get("/clusters/:id/nodes", requireOperatorOrAdmin, async (req, res): Promise<void> => {
   const params = GetClusterParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -161,7 +162,7 @@ router.get("/clusters/:id/nodes", async (req, res): Promise<void> => {
   }
 });
 
-router.post("/clusters/:id/sync", async (req, res): Promise<void> => {
+router.post("/clusters/:id/sync", requireAdmin, async (req, res): Promise<void> => {
   const params = SyncClusterParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -261,7 +262,7 @@ router.post("/clusters/:id/sync", async (req, res): Promise<void> => {
   }
 });
 
-router.get("/clusters/:id/nextid", async (req, res): Promise<void> => {
+router.get("/clusters/:id/nextid", requireOperatorOrAdmin, async (req, res): Promise<void> => {
   const params = GetClusterParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const [cluster] = await db.select().from(clustersTable).where(eq(clustersTable.id, params.data.id));
@@ -275,7 +276,7 @@ router.get("/clusters/:id/nextid", async (req, res): Promise<void> => {
   }
 });
 
-router.get("/clusters/:id/resources/nodes", async (req, res): Promise<void> => {
+router.get("/clusters/:id/resources/nodes", requireOperatorOrAdmin, async (req, res): Promise<void> => {
   const params = GetClusterParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const [cluster] = await db.select().from(clustersTable).where(eq(clustersTable.id, params.data.id));
@@ -289,7 +290,7 @@ router.get("/clusters/:id/resources/nodes", async (req, res): Promise<void> => {
   }
 });
 
-router.get("/clusters/:id/resources/storage", async (req, res): Promise<void> => {
+router.get("/clusters/:id/resources/storage", requireOperatorOrAdmin, async (req, res): Promise<void> => {
   const params = GetClusterParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const node = req.query.node as string;
@@ -305,7 +306,7 @@ router.get("/clusters/:id/resources/storage", async (req, res): Promise<void> =>
   }
 });
 
-router.get("/clusters/:id/resources/isos", async (req, res): Promise<void> => {
+router.get("/clusters/:id/resources/isos", requireOperatorOrAdmin, async (req, res): Promise<void> => {
   const params = GetClusterParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const node = req.query.node as string;
@@ -322,7 +323,7 @@ router.get("/clusters/:id/resources/isos", async (req, res): Promise<void> => {
   }
 });
 
-router.get("/clusters/:id/resources/templates", async (req, res): Promise<void> => {
+router.get("/clusters/:id/resources/templates", requireOperatorOrAdmin, async (req, res): Promise<void> => {
   const params = GetClusterParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const node = req.query.node as string;
@@ -339,7 +340,7 @@ router.get("/clusters/:id/resources/templates", async (req, res): Promise<void> 
   }
 });
 
-router.get("/clusters/:id/resources/networks", async (req, res): Promise<void> => {
+router.get("/clusters/:id/resources/networks", requireOperatorOrAdmin, async (req, res): Promise<void> => {
   const params = GetClusterParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const node = req.query.node as string;
@@ -384,17 +385,34 @@ router.get("/clusters/:id/resources/networks", async (req, res): Promise<void> =
   }
 });
 
-router.post("/clusters/:id/create-vm", async (req, res): Promise<void> => {
+router.post("/clusters/:id/create-vm", requireOperatorOrAdmin, async (req, res): Promise<void> => {
   const params = GetClusterParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const [cluster] = await db.select().from(clustersTable).where(eq(clustersTable.id, params.data.id));
   if (!cluster) { res.status(404).json({ error: "Cluster not found" }); return; }
 
-  const { type, node, vmid, name, cores, memory, diskSize, storage, iso, template, ostype, bridge, startAfterCreate, rootPassword, sockets, vcpus, balloon, description, vlan, tenantId } = req.body;
+  const sessionUser = getSessionUser(req);
+  const { type, node, vmid, name, cores, memory, diskSize, storage, iso, template, ostype, bridge, startAfterCreate, rootPassword, sockets, vcpus, balloon, description, vlan } = req.body;
+  const tenantId = sessionUser?.userRole === "admin"
+    ? (req.body.tenantId ?? undefined)
+    : sessionUser?.tenantId ?? undefined;
 
   if (!type || !node || !vmid || !name || !cores || !memory || !diskSize || !storage) {
     res.status(400).json({ error: "Missing required fields: type, node, vmid, name, cores, memory, diskSize, storage" });
     return;
+  }
+
+  if (sessionUser?.userRole !== "admin" && tenantId) {
+    const { tenantClusterAccessTable } = await import("@workspace/db");
+    const [grant] = await db.select().from(tenantClusterAccessTable)
+      .where(and(
+        eq(tenantClusterAccessTable.tenantId, tenantId),
+        eq(tenantClusterAccessTable.clusterId, params.data.id)
+      ));
+    if (!grant) {
+      res.status(403).json({ error: "Your tenant does not have access to this cluster" });
+      return;
+    }
   }
 
   if (tenantId) {

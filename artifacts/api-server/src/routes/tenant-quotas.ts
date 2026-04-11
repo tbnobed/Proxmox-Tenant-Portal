@@ -1,13 +1,17 @@
 import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
 import { db, tenantsTable, tenantClusterAccessTable, clustersTable, vmsTable } from "@workspace/db";
-import { requireAdmin } from "../middleware/auth";
+import { requireAdmin, getSessionUser } from "../middleware/auth";
 
 const router: IRouter = Router();
 
-router.get("/tenants/:id/quotas", requireAdmin, async (req, res): Promise<void> => {
+router.get("/tenants/:id/quotas", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid tenant id" }); return; }
+  const sessionUser = getSessionUser(req);
+  if (sessionUser?.userRole !== "admin" && sessionUser?.tenantId !== id) {
+    res.status(403).json({ error: "Access denied" }); return;
+  }
 
   const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, id));
   if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
@@ -73,9 +77,13 @@ router.patch("/tenants/:id/quotas", requireAdmin, async (req, res): Promise<void
   });
 });
 
-router.get("/tenants/:id/clusters", requireAdmin, async (req, res): Promise<void> => {
+router.get("/tenants/:id/clusters", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid tenant id" }); return; }
+  const sessionUser = getSessionUser(req);
+  if (sessionUser?.userRole !== "admin" && sessionUser?.tenantId !== id) {
+    res.status(403).json({ error: "Access denied" }); return;
+  }
 
   const grants = await db.select({
     id: tenantClusterAccessTable.id,

@@ -10,12 +10,12 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 
 ### Features
 - **Authentication**: Session-based login/logout with password hashing (crypto.scrypt), auto-seeds default admin on first run
-- **RBAC**: Role-based access control — admins see everything; operators/viewers only see VMs granted via user_vm_access or tenant_vm_access. Admin-only routes (clusters, tenants, users, access control) return 403 for non-admins. Session revalidates role/tenant from DB on every request.
+- **RBAC**: Role-based access control — admins see everything; operators/viewers only see VMs granted via user_vm_access or tenant_vm_access. Admin-only routes (cluster CRUD, tenants, users, access control) return 403 for non-admins. Operators can access cluster read/resource endpoints and create VMs. Server-side enforcement: operators' tenantId is forced from session (cannot assign to other tenants), and cluster access is validated against `tenant_cluster_access`. Session revalidates role/tenant from DB on every request.
 - **Multi-cluster**: Register multiple Proxmox cluster endpoints
 - **Tenants**: Organizational units with user and VM assignment
 - **Users**: Roles (admin/operator/viewer), tenant membership, per-user VM access
 - **VMs**: Cross-cluster VM list, start/stop/reboot actions, filtering
-- **Create VM**: Full creation form for QEMU VMs and LXC containers with ISO/template selection, network bridge picker, storage pool, CPU/memory/disk config, VLAN tags, and auto-start option. Route: `/vms/create`, admin-only.
+- **Create VM**: Full creation form for QEMU VMs and LXC containers with ISO/template selection, network bridge picker, storage pool, CPU/memory/disk config, VLAN tags, and auto-start option. Route: `/vms/create`, accessible to admin and operator roles. Operators see only their tenant's allowed clusters; tenant is auto-assigned. Admins see all clusters and a tenant selector dropdown.
 - **VM Console**: VNC console viewer via noVNC (WebSocket proxy to Proxmox VNC)
 - **Real Proxmox Integration**: Sync VMs, send start/stop/reboot commands to actual Proxmox API
 - **Node Status**: Per-cluster expandable node panels showing real-time CPU, RAM, disk, swap, IO delay, KSM, load avg, kernel version, PVE version, boot mode, uptime — fetched live from Proxmox API

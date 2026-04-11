@@ -107,6 +107,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     email: user.email,
     fullName: user.fullName,
     role: user.role,
+    tenantId: user.tenantId,
   });
 });
 

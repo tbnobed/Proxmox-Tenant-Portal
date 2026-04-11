@@ -12,6 +12,7 @@ import type { Vm } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Monitor, Play, Square, RotateCcw, Trash2, Plus } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -89,6 +90,8 @@ export default function VmsPage() {
     });
   }
 
+  const { user } = useAuth();
+  const canCreate = user?.role === "admin" || user?.role === "operator";
   const hasFilters = clusterFilter !== "all" || tenantFilter !== "all" || statusFilter !== "all";
 
   return (
@@ -98,11 +101,13 @@ export default function VmsPage() {
           <h1 className="text-xl font-semibold text-foreground">Virtual Machines</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage VMs across all clusters</p>
         </div>
-        <Link href="/vms/create">
-          <Button size="sm">
-            <Plus className="w-4 h-4 mr-1.5" /> Create VM
-          </Button>
-        </Link>
+        {canCreate && (
+          <Link href="/vms/create">
+            <Button size="sm">
+              <Plus className="w-4 h-4 mr-1.5" /> Create VM
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* Filters */}

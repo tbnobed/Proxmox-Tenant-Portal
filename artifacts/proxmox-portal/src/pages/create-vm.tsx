@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useListClusters, useListTenants, getListVmsQueryKey, getListClustersQueryKey } from "@workspace/api-client-react";
+import { useAuth } from "@/hooks/use-auth";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { ArrowLeft, Loader2, Server, Monitor, Box } from "lucide-react";
@@ -49,8 +50,11 @@ const OS_TYPES = [
   { value: "other", label: "Other" },
 ];
 
+const BASE = import.meta.env.BASE_URL ?? "/";
+
 async function apiFetch<T>(url: string): Promise<T> {
-  const res = await fetch(url, { credentials: "include" });
+  const fullUrl = url.startsWith("/") ? `${BASE}${url.slice(1)}` : url;
+  const res = await fetch(fullUrl, { credentials: "include" });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `HTTP ${res.status}`);
@@ -60,6 +64,8 @@ async function apiFetch<T>(url: string): Promise<T> {
 
 export default function CreateVmPage() {
   const { data: clusters, isLoading: clustersLoading } = useListClusters();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const qc = useQueryClient();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -85,8 +91,21 @@ export default function CreateVmPage() {
   const [rootPassword, setRootPassword] = useState<string>("");
   const [startAfterCreate, setStartAfterCreate] = useState<boolean>(false);
   const [selectedTenantId, setSelectedTenantId] = useState<string>("");
+  const [allowedClusterIds, setAllowedClusterIds] = useState<Set<number> | null>(null);
 
   const { data: tenants } = useListTenants();
+
+  useEffect(() => {
+    if (isAdmin || !user?.tenantId) { setAllowedClusterIds(null); return; }
+    fetch(`${BASE}api/tenants/${user.tenantId}/clusters`, { credentials: "include" })
+      .then(r => r.ok ? r.json() : [])
+      .then((grants: any[]) => setAllowedClusterIds(new Set(grants.map(g => g.clusterId))))
+      .catch(() => setAllowedClusterIds(new Set()));
+  }, [isAdmin, user?.tenantId]);
+
+  const availableClusters = clusters?.filter(c =>
+    allowedClusterIds === null ? true : allowedClusterIds.has(c.id)
+  ) ?? [];
   const [nodes, setNodes] = useState<string[]>([]);
   const [storages, setStorages] = useState<StorageInfo[]>([]);
   const [isos, setIsos] = useState<TemplateEntry[]>([]);
@@ -194,7 +213,7 @@ export default function CreateVmPage() {
 
     setCreating(true);
     try {
-      const res = await fetch(`/api/clusters/${clusterId}/create-vm`, {
+      const res = await fetch(`${BASE}api/clusters/${clusterId}/create-vm`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -294,7 +313,7 @@ export default function CreateVmPage() {
               <Select value={clusterId} onValueChange={v => { setClusterId(v); setNode(""); setStorage(""); }}>
                 <SelectTrigger className="mt-1"><SelectValue placeholder="Select cluster" /></SelectTrigger>
                 <SelectContent>
-                  {clusters?.map(c => (
+                  {availableClusters.map(c => (
                     <SelectItem key={c.id} value={String(c.id)}>{c.name} ({c.host})</SelectItem>
                   ))}
                 </SelectContent>
@@ -326,18 +345,20 @@ export default function CreateVmPage() {
               {loadingVmid && <Loader2 className="absolute right-2 top-2.5 w-4 h-4 animate-spin text-muted-foreground" />}
             </div>
           </div>
-          <div>
-            <Label>Assign to Tenant</Label>
-            <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
-              <SelectTrigger className="mt-1"><SelectValue placeholder="No tenant (unassigned)" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">No tenant</SelectItem>
-                {tenants?.map(t => (
-                  <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {isAdmin && (
+            <div>
+              <Label>Assign to Tenant</Label>
+              <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="No tenant (unassigned)" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No tenant</SelectItem>
+                  {tenants?.map(t => (
+                    <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       </div>
 

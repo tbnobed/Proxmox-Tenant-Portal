@@ -18,7 +18,7 @@ import {
 import { performVmAction, getVncTicket, authenticate } from "../proxmox-client";
 import { createVncSession } from "../vnc-proxy";
 import { getSessionUser } from "../middleware/auth";
-import { requireAdmin } from "../middleware/auth";
+import { requireAdmin, requireOperatorOrAdmin } from "../middleware/auth";
 import { notifyVmAction } from "../notifications";
 import { checkTenantQuota } from "../quota-check";
 import crypto from "node:crypto";
@@ -104,11 +104,16 @@ router.get("/vms", async (req, res): Promise<void> => {
   res.json(ListVmsResponse.parse(result));
 });
 
-router.post("/vms", requireAdmin, async (req, res): Promise<void> => {
+router.post("/vms", requireOperatorOrAdmin, async (req, res): Promise<void> => {
   const parsed = CreateVmBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
+  }
+
+  const sessionUser = getSessionUser(req);
+  if (sessionUser?.userRole !== "admin") {
+    parsed.data.tenantId = sessionUser?.tenantId ?? undefined;
   }
 
   if (parsed.data.tenantId) {
@@ -129,7 +134,6 @@ router.post("/vms", requireAdmin, async (req, res): Promise<void> => {
   const enriched = await enrichVm(vm);
   res.status(201).json(GetVmResponse.parse(enriched));
 
-  const sessionUser = getSessionUser(req);
   import("../notifications").then(({ notifyVmCreated }) => {
     notifyVmCreated(vm.name, vm.vmId, vm.type, vm.node, enriched.clusterName, sessionUser?.username ?? "system").catch(() => {});
   });
