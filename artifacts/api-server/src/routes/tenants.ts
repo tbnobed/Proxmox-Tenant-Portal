@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, inArray } from "drizzle-orm";
 import { db, tenantsTable, usersTable, vmsTable, tenantVmAccessTable } from "@workspace/db";
 import {
   CreateTenantBody,
@@ -22,12 +22,12 @@ router.get("/tenants", async (_req, res): Promise<void> => {
     .select({ tenantId: usersTable.tenantId, count: sql<number>`count(*)::int` })
     .from(usersTable)
     .groupBy(usersTable.tenantId);
-  const vmCounts = await db
-    .select({ tenantId: vmsTable.tenantId, count: sql<number>`count(*)::int` })
-    .from(vmsTable)
-    .groupBy(vmsTable.tenantId);
+  const vmAccessCounts = await db
+    .select({ tenantId: tenantVmAccessTable.tenantId, count: sql<number>`count(*)::int` })
+    .from(tenantVmAccessTable)
+    .groupBy(tenantVmAccessTable.tenantId);
   const ucMap = Object.fromEntries(userCounts.map(r => [r.tenantId, r.count]));
-  const vcMap = Object.fromEntries(vmCounts.map(r => [r.tenantId, r.count]));
+  const vcMap = Object.fromEntries(vmAccessCounts.map(r => [r.tenantId, r.count]));
 
   const result = rows.map(t => ({
     ...t,
@@ -67,7 +67,7 @@ router.get("/tenants/:id", async (req, res): Promise<void> => {
     return;
   }
   const [uc] = await db.select({ count: sql<number>`count(*)::int` }).from(usersTable).where(eq(usersTable.tenantId, tenant.id));
-  const [vc] = await db.select({ count: sql<number>`count(*)::int` }).from(vmsTable).where(eq(vmsTable.tenantId, tenant.id));
+  const [vc] = await db.select({ count: sql<number>`count(*)::int` }).from(tenantVmAccessTable).where(eq(tenantVmAccessTable.tenantId, tenant.id));
   res.json(GetTenantResponse.parse({
     ...tenant,
     userCount: uc?.count ?? 0,
@@ -100,7 +100,7 @@ router.patch("/tenants/:id", async (req, res): Promise<void> => {
     return;
   }
   const [uc] = await db.select({ count: sql<number>`count(*)::int` }).from(usersTable).where(eq(usersTable.tenantId, tenant.id));
-  const [vc] = await db.select({ count: sql<number>`count(*)::int` }).from(vmsTable).where(eq(vmsTable.tenantId, tenant.id));
+  const [vc] = await db.select({ count: sql<number>`count(*)::int` }).from(tenantVmAccessTable).where(eq(tenantVmAccessTable.tenantId, tenant.id));
   res.json(UpdateTenantResponse.parse({
     ...tenant,
     userCount: uc?.count ?? 0,
@@ -135,12 +135,21 @@ router.get("/tenants/:id/summary", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Tenant not found" });
     return;
   }
-  const vmRows = await db.select({ status: vmsTable.status, count: sql<number>`count(*)::int` })
-    .from(vmsTable)
-    .where(eq(vmsTable.tenantId, params.data.id))
-    .groupBy(vmsTable.status);
-  const statusMap = Object.fromEntries(vmRows.map(r => [r.status, r.count]));
-  const totalVms = vmRows.reduce((s, r) => s + r.count, 0);
+  const accessRows = await db.select({ vmId: tenantVmAccessTable.vmId })
+    .from(tenantVmAccessTable)
+    .where(eq(tenantVmAccessTable.tenantId, params.data.id));
+  const accessVmIds = accessRows.map(r => r.vmId);
+
+  let statusMap: Record<string, number> = {};
+  let totalVms = 0;
+  if (accessVmIds.length > 0) {
+    const vmRows = await db.select({ status: vmsTable.status, count: sql<number>`count(*)::int` })
+      .from(vmsTable)
+      .where(inArray(vmsTable.id, accessVmIds))
+      .groupBy(vmsTable.status);
+    statusMap = Object.fromEntries(vmRows.map(r => [r.status, r.count]));
+    totalVms = vmRows.reduce((s, r) => s + r.count, 0);
+  }
   const [uc] = await db.select({ count: sql<number>`count(*)::int` }).from(usersTable).where(eq(usersTable.tenantId, params.data.id));
 
   res.json(GetTenantSummaryResponse.parse({
