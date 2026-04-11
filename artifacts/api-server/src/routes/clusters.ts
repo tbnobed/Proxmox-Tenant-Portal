@@ -1,7 +1,17 @@
 import { Router, type IRouter } from "express";
 import { eq, sql, and } from "drizzle-orm";
 import { db, clustersTable, vmsTable } from "@workspace/db";
-import { syncFromProxmox, getNodeStatuses } from "../proxmox-client";
+import {
+  syncFromProxmox,
+  getNodeStatuses,
+  getNextVmId,
+  getNodeList,
+  getStoragePools,
+  getIsoImages,
+  getContainerTemplates,
+  createQemuVm,
+  createLxcContainer,
+} from "../proxmox-client";
 import {
   CreateClusterBody,
   GetClusterParams,
@@ -248,6 +258,312 @@ router.post("/clusters/:id/sync", async (req, res): Promise<void> => {
       .set({ status: "offline" })
       .where(eq(clustersTable.id, cluster.id));
     res.status(502).json({ error: `Failed to sync with Proxmox: ${message}` });
+  }
+});
+
+router.get("/clusters/:id/nextid", async (req, res): Promise<void> => {
+  const params = GetClusterParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  const [cluster] = await db.select().from(clustersTable).where(eq(clustersTable.id, params.data.id));
+  if (!cluster) { res.status(404).json({ error: "Cluster not found" }); return; }
+  try {
+    const nextId = await getNextVmId(cluster.host, cluster.port, cluster.username, cluster.passwordHash, cluster.realm);
+    res.json({ vmid: nextId });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    res.status(502).json({ error: `Failed to get next VM ID: ${message}` });
+  }
+});
+
+router.get("/clusters/:id/resources/nodes", async (req, res): Promise<void> => {
+  const params = GetClusterParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  const [cluster] = await db.select().from(clustersTable).where(eq(clustersTable.id, params.data.id));
+  if (!cluster) { res.status(404).json({ error: "Cluster not found" }); return; }
+  try {
+    const nodes = await getNodeList(cluster.host, cluster.port, cluster.username, cluster.passwordHash, cluster.realm);
+    res.json(nodes);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    res.status(502).json({ error: `Failed to list nodes: ${message}` });
+  }
+});
+
+router.get("/clusters/:id/resources/storage", async (req, res): Promise<void> => {
+  const params = GetClusterParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  const node = req.query.node as string;
+  if (!node) { res.status(400).json({ error: "node query parameter required" }); return; }
+  const [cluster] = await db.select().from(clustersTable).where(eq(clustersTable.id, params.data.id));
+  if (!cluster) { res.status(404).json({ error: "Cluster not found" }); return; }
+  try {
+    const pools = await getStoragePools(cluster.host, cluster.port, cluster.username, cluster.passwordHash, cluster.realm, node);
+    res.json(pools);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    res.status(502).json({ error: `Failed to list storage: ${message}` });
+  }
+});
+
+router.get("/clusters/:id/resources/isos", async (req, res): Promise<void> => {
+  const params = GetClusterParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  const node = req.query.node as string;
+  const storage = req.query.storage as string;
+  if (!node || !storage) { res.status(400).json({ error: "node and storage query parameters required" }); return; }
+  const [cluster] = await db.select().from(clustersTable).where(eq(clustersTable.id, params.data.id));
+  if (!cluster) { res.status(404).json({ error: "Cluster not found" }); return; }
+  try {
+    const isos = await getIsoImages(cluster.host, cluster.port, cluster.username, cluster.passwordHash, cluster.realm, node, storage);
+    res.json(isos);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    res.status(502).json({ error: `Failed to list ISOs: ${message}` });
+  }
+});
+
+router.get("/clusters/:id/resources/templates", async (req, res): Promise<void> => {
+  const params = GetClusterParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  const node = req.query.node as string;
+  const storage = req.query.storage as string;
+  if (!node || !storage) { res.status(400).json({ error: "node and storage query parameters required" }); return; }
+  const [cluster] = await db.select().from(clustersTable).where(eq(clustersTable.id, params.data.id));
+  if (!cluster) { res.status(404).json({ error: "Cluster not found" }); return; }
+  try {
+    const templates = await getContainerTemplates(cluster.host, cluster.port, cluster.username, cluster.passwordHash, cluster.realm, node, storage);
+    res.json(templates);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    res.status(502).json({ error: `Failed to list templates: ${message}` });
+  }
+});
+
+router.get("/clusters/:id/resources/networks", async (req, res): Promise<void> => {
+  const params = GetClusterParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  const node = req.query.node as string;
+  if (!node) { res.status(400).json({ error: "node query parameter required" }); return; }
+  const [cluster] = await db.select().from(clustersTable).where(eq(clustersTable.id, params.data.id));
+  if (!cluster) { res.status(404).json({ error: "Cluster not found" }); return; }
+  try {
+    const { authenticate: authFn } = await import("../proxmox-client");
+    const auth = await authFn(cluster.host, cluster.port, cluster.username, cluster.passwordHash, cluster.realm);
+    const https = await import("node:https");
+    const url = `https://${cluster.host}:${cluster.port}/api2/json/nodes/${node}/network`;
+    const result = await new Promise<any>((resolve, reject) => {
+      const req = https.request(url, {
+        method: "GET",
+        headers: { Cookie: `PVEAuthCookie=${auth.ticket}`, CSRFPreventionToken: auth.csrfToken },
+        rejectUnauthorized: false,
+      }, (r) => {
+        const chunks: Buffer[] = [];
+        r.on("data", (c: Buffer) => chunks.push(c));
+        r.on("end", () => {
+          try { resolve(JSON.parse(Buffer.concat(chunks).toString())); } catch { resolve({}); }
+        });
+      });
+      req.on("error", reject);
+      req.end();
+    });
+    const networks = (result.data ?? [])
+      .filter((n: any) => n.type === "bridge")
+      .map((n: any) => ({
+        iface: n.iface,
+        type: n.type,
+        active: n.active ?? 0,
+        address: n.address ?? "",
+        cidr: n.cidr ?? "",
+        bridgePorts: n.bridge_ports ?? "",
+        comments: n.comments ?? "",
+      }));
+    res.json(networks);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    res.status(502).json({ error: `Failed to list networks: ${message}` });
+  }
+});
+
+router.post("/clusters/:id/create-vm", async (req, res): Promise<void> => {
+  const params = GetClusterParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  const [cluster] = await db.select().from(clustersTable).where(eq(clustersTable.id, params.data.id));
+  if (!cluster) { res.status(404).json({ error: "Cluster not found" }); return; }
+
+  const { type, node, vmid, name, cores, memory, diskSize, storage, iso, template, ostype, bridge, startAfterCreate, rootPassword, sockets, vcpus, balloon, description, vlan } = req.body;
+
+  if (!type || !node || !vmid || !name || !cores || !memory || !diskSize || !storage) {
+    res.status(400).json({ error: "Missing required fields: type, node, vmid, name, cores, memory, diskSize, storage" });
+    return;
+  }
+
+  try {
+    if (type === "qemu") {
+      const netConfig = `virtio,bridge=${bridge || "vmbr0"}${vlan ? `,tag=${vlan}` : ""}`;
+      const { authenticate: authFn } = await import("../proxmox-client");
+      const auth = await authFn(cluster.host, cluster.port, cluster.username, cluster.passwordHash, cluster.realm);
+      const pms: Record<string, string> = {
+        vmid: String(vmid),
+        name,
+        cores: String(cores),
+        sockets: String(sockets || 1),
+        memory: String(memory),
+        scsihw: "virtio-scsi-single",
+        scsi0: `${storage}:${diskSize}`,
+        net0: netConfig,
+        ostype: ostype || "l26",
+        boot: "order=scsi0",
+        agent: "1",
+      };
+      if (vcpus) pms.vcpus = String(vcpus);
+      if (balloon != null) pms.balloon = String(balloon);
+      if (description) pms.description = description;
+      if (iso) {
+        pms.ide2 = `${iso},media=cdrom`;
+        pms.boot = "order=ide2;scsi0";
+      }
+      const body = Object.entries(pms).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+      const https = await import("node:https");
+      const url = `https://${cluster.host}:${cluster.port}/api2/json/nodes/${node}/qemu`;
+      const result = await new Promise<any>((resolve, reject) => {
+        const r = https.request(url, {
+          method: "POST",
+          headers: {
+            Cookie: `PVEAuthCookie=${auth.ticket}`,
+            CSRFPreventionToken: auth.csrfToken,
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Length": Buffer.byteLength(body).toString(),
+          },
+          rejectUnauthorized: false,
+        }, (resp) => {
+          const chunks: Buffer[] = [];
+          resp.on("data", (c: Buffer) => chunks.push(c));
+          resp.on("end", () => {
+            try { resolve({ status: resp.statusCode, data: JSON.parse(Buffer.concat(chunks).toString()) }); }
+            catch { resolve({ status: resp.statusCode, data: Buffer.concat(chunks).toString() }); }
+          });
+        });
+        r.on("error", reject);
+        r.write(body);
+        r.end();
+      });
+
+      if (result.status !== 200) {
+        const errMsg = typeof result.data === "object" ? JSON.stringify(result.data) : String(result.data);
+        throw new Error(`Proxmox returned ${result.status}: ${errMsg}`);
+      }
+
+      if (startAfterCreate) {
+        try {
+          const startUrl = `https://${cluster.host}:${cluster.port}/api2/json/nodes/${node}/qemu/${vmid}/status/start`;
+          await new Promise<void>((resolve, reject) => {
+            const r = https.request(startUrl, {
+              method: "POST",
+              headers: { Cookie: `PVEAuthCookie=${auth.ticket}`, CSRFPreventionToken: auth.csrfToken },
+              rejectUnauthorized: false,
+            }, () => resolve());
+            r.on("error", reject);
+            r.end();
+          });
+        } catch (e) { console.error("Auto-start failed:", e); }
+      }
+
+      await db.insert(vmsTable).values({
+        vmId: vmid,
+        name,
+        node,
+        type: "qemu",
+        status: startAfterCreate ? "running" : "stopped",
+        cpus: cores * (sockets || 1),
+        memoryMb: memory,
+        diskGb: diskSize,
+        clusterId: cluster.id,
+      });
+
+      res.json({ success: true, upid: result.data?.data, type: "qemu", vmid });
+    } else if (type === "lxc") {
+      const netConfig = `name=eth0,bridge=${bridge || "vmbr0"},ip=dhcp${vlan ? `,tag=${vlan}` : ""}`;
+      const { authenticate: authFn } = await import("../proxmox-client");
+      const auth = await authFn(cluster.host, cluster.port, cluster.username, cluster.passwordHash, cluster.realm);
+      const pms: Record<string, string> = {
+        vmid: String(vmid),
+        hostname: name,
+        cores: String(cores),
+        memory: String(memory),
+        rootfs: `${storage}:${diskSize}`,
+        net0: netConfig,
+        ostemplate: template || "",
+        unprivileged: "1",
+      };
+      if (rootPassword) pms.password = rootPassword;
+      if (description) pms.description = description;
+
+      const body = Object.entries(pms).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+      const https = await import("node:https");
+      const url = `https://${cluster.host}:${cluster.port}/api2/json/nodes/${node}/lxc`;
+      const result = await new Promise<any>((resolve, reject) => {
+        const r = https.request(url, {
+          method: "POST",
+          headers: {
+            Cookie: `PVEAuthCookie=${auth.ticket}`,
+            CSRFPreventionToken: auth.csrfToken,
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Length": Buffer.byteLength(body).toString(),
+          },
+          rejectUnauthorized: false,
+        }, (resp) => {
+          const chunks: Buffer[] = [];
+          resp.on("data", (c: Buffer) => chunks.push(c));
+          resp.on("end", () => {
+            try { resolve({ status: resp.statusCode, data: JSON.parse(Buffer.concat(chunks).toString()) }); }
+            catch { resolve({ status: resp.statusCode, data: Buffer.concat(chunks).toString() }); }
+          });
+        });
+        r.on("error", reject);
+        r.write(body);
+        r.end();
+      });
+
+      if (result.status !== 200) {
+        const errMsg = typeof result.data === "object" ? JSON.stringify(result.data) : String(result.data);
+        throw new Error(`Proxmox returned ${result.status}: ${errMsg}`);
+      }
+
+      if (startAfterCreate) {
+        try {
+          const startUrl = `https://${cluster.host}:${cluster.port}/api2/json/nodes/${node}/lxc/${vmid}/status/start`;
+          await new Promise<void>((resolve, reject) => {
+            const r = https.request(startUrl, {
+              method: "POST",
+              headers: { Cookie: `PVEAuthCookie=${auth.ticket}`, CSRFPreventionToken: auth.csrfToken },
+              rejectUnauthorized: false,
+            }, () => resolve());
+            r.on("error", reject);
+            r.end();
+          });
+        } catch (e) { console.error("Auto-start failed:", e); }
+      }
+
+      await db.insert(vmsTable).values({
+        vmId: vmid,
+        name,
+        node,
+        type: "lxc",
+        status: startAfterCreate ? "running" : "stopped",
+        cpus: cores,
+        memoryMb: memory,
+        diskGb: diskSize,
+        clusterId: cluster.id,
+      });
+
+      res.json({ success: true, upid: result.data?.data, type: "lxc", vmid });
+    } else {
+      res.status(400).json({ error: "type must be 'qemu' or 'lxc'" });
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("VM creation error:", message);
+    res.status(502).json({ error: `Failed to create VM: ${message}` });
   }
 });
 

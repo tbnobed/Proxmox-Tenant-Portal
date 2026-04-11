@@ -15,8 +15,10 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 - **Tenants**: Organizational units with user and VM assignment
 - **Users**: Roles (admin/operator/viewer), tenant membership, per-user VM access
 - **VMs**: Cross-cluster VM list, start/stop/reboot actions, filtering
+- **Create VM**: Full creation form for QEMU VMs and LXC containers with ISO/template selection, network bridge picker, storage pool, CPU/memory/disk config, VLAN tags, and auto-start option. Route: `/vms/create`, admin-only.
 - **VM Console**: VNC console viewer via noVNC (WebSocket proxy to Proxmox VNC)
 - **Real Proxmox Integration**: Sync VMs, send start/stop/reboot commands to actual Proxmox API
+- **Node Status**: Per-cluster expandable node panels showing real-time CPU, RAM, disk, swap, IO delay, KSM, load avg, kernel version, PVE version, boot mode, uptime — fetched live from Proxmox API
 - **Access Control**: Grant/revoke tenant-VM and user-VM access
 - **Dashboard**: Stats, running/stopped counts, recent activity feed
 

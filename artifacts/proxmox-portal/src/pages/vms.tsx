@@ -11,7 +11,7 @@ import {
 import type { Vm } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Monitor, Play, Square, RotateCcw, Trash2 } from "lucide-react";
+import { Monitor, Play, Square, RotateCcw, Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -84,9 +84,16 @@ export default function VmsPage() {
 
   return (
     <div className="p-6 md:p-8 space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">Virtual Machines</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage VMs across all clusters</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">Virtual Machines</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage VMs across all clusters</p>
+        </div>
+        <Link href="/vms/create">
+          <Button size="sm">
+            <Plus className="w-4 h-4 mr-1.5" /> Create VM
+          </Button>
+        </Link>
       </div>
 
       {/* Filters */}

@@ -311,6 +311,159 @@ export async function getNodeStatuses(
   return results;
 }
 
+export interface StorageInfo {
+  storage: string;
+  type: string;
+  content: string;
+  avail: number;
+  total: number;
+  used: number;
+  active: number;
+}
+
+export interface TemplateEntry {
+  volid: string;
+  format: string;
+  size: number;
+  content: string;
+}
+
+export async function getNextVmId(
+  host: string, port: number, username: string, password: string, realm: string
+): Promise<number> {
+  const auth = await authenticate(host, port, username, password, realm);
+  const id = await apiGet<number>(host, port, "/api2/json/cluster/nextid", auth);
+  return id;
+}
+
+export async function getNodeList(
+  host: string, port: number, username: string, password: string, realm: string
+): Promise<string[]> {
+  const auth = await authenticate(host, port, username, password, realm);
+  const nodes = await apiGet<ProxmoxNode[]>(host, port, "/api2/json/nodes", auth);
+  return nodes.map(n => n.node);
+}
+
+export async function getStoragePools(
+  host: string, port: number, username: string, password: string, realm: string, node: string
+): Promise<StorageInfo[]> {
+  const auth = await authenticate(host, port, username, password, realm);
+  const storages = await apiGet<any[]>(host, port, `/api2/json/nodes/${node}/storage`, auth);
+  return storages.map(s => ({
+    storage: s.storage,
+    type: s.type,
+    content: s.content ?? "",
+    avail: s.avail ?? 0,
+    total: s.total ?? 0,
+    used: s.used ?? 0,
+    active: s.active ?? 0,
+  }));
+}
+
+export async function getIsoImages(
+  host: string, port: number, username: string, password: string, realm: string, node: string, storage: string
+): Promise<TemplateEntry[]> {
+  const auth = await authenticate(host, port, username, password, realm);
+  try {
+    const content = await apiGet<any[]>(host, port, `/api2/json/nodes/${node}/storage/${storage}/content?content=iso`, auth);
+    return content.map(c => ({
+      volid: c.volid,
+      format: c.format ?? "iso",
+      size: c.size ?? 0,
+      content: "iso",
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getContainerTemplates(
+  host: string, port: number, username: string, password: string, realm: string, node: string, storage: string
+): Promise<TemplateEntry[]> {
+  const auth = await authenticate(host, port, username, password, realm);
+  try {
+    const content = await apiGet<any[]>(host, port, `/api2/json/nodes/${node}/storage/${storage}/content?content=vztmpl`, auth);
+    return content.map(c => ({
+      volid: c.volid,
+      format: c.format ?? "tar",
+      size: c.size ?? 0,
+      content: "vztmpl",
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function createQemuVm(
+  host: string, port: number, username: string, password: string, realm: string,
+  node: string,
+  opts: { vmid: number; name: string; cores: number; memory: number; diskSize: number; storage: string; iso?: string; ostype?: string; startAfterCreate?: boolean }
+): Promise<string> {
+  const auth = await authenticate(host, port, username, password, realm);
+  const params: Record<string, string> = {
+    vmid: String(opts.vmid),
+    name: opts.name,
+    cores: String(opts.cores),
+    memory: String(opts.memory),
+    scsihw: "virtio-scsi-single",
+    scsi0: `${opts.storage}:${opts.diskSize}`,
+    net0: "virtio,bridge=vmbr0",
+    ostype: opts.ostype ?? "l26",
+    boot: "order=scsi0",
+  };
+  if (opts.iso) {
+    params.ide2 = `${opts.iso},media=cdrom`;
+    params.boot = "order=ide2;scsi0";
+  }
+
+  const body = Object.entries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+  const result = await apiPost<string>(host, port, `/api2/json/nodes/${node}/qemu`, auth, body);
+
+  if (opts.startAfterCreate) {
+    try {
+      await apiPost<string>(host, port, `/api2/json/nodes/${node}/qemu/${opts.vmid}/status/start`, auth);
+    } catch (e) {
+      console.error("Failed to auto-start VM:", e);
+    }
+  }
+
+  return result;
+}
+
+export async function createLxcContainer(
+  host: string, port: number, username: string, password: string, realm: string,
+  node: string,
+  opts: { vmid: number; hostname: string; cores: number; memory: number; diskSize: number; storage: string; template: string; password?: string; startAfterCreate?: boolean }
+): Promise<string> {
+  const auth = await authenticate(host, port, username, password, realm);
+  const params: Record<string, string> = {
+    vmid: String(opts.vmid),
+    hostname: opts.hostname,
+    cores: String(opts.cores),
+    memory: String(opts.memory),
+    rootfs: `${opts.storage}:${opts.diskSize}`,
+    net0: "name=eth0,bridge=vmbr0,ip=dhcp",
+    ostemplate: opts.template,
+    unprivileged: "1",
+  };
+  if (opts.password) {
+    params.password = opts.password;
+  }
+
+  const body = Object.entries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+  const result = await apiPost<string>(host, port, `/api2/json/nodes/${node}/lxc`, auth, body);
+
+  if (opts.startAfterCreate) {
+    try {
+      await apiPost<string>(host, port, `/api2/json/nodes/${node}/lxc/${opts.vmid}/status/start`, auth);
+    } catch (e) {
+      console.error("Failed to auto-start container:", e);
+    }
+  }
+
+  return result;
+}
+
 export async function syncFromProxmox(
   host: string,
   port: number,

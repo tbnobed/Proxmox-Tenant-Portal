@@ -18,6 +18,7 @@ import VmsPage from "@/pages/vms";
 import VmDetailPage from "@/pages/vm-detail";
 import AccessPage from "@/pages/access";
 import VmConsolePage from "@/pages/vm-console";
+import CreateVmPage from "@/pages/create-vm";
 import { Loader2 } from "lucide-react";
 
 let authRefreshCallback: (() => void) | null = null;
@@ -74,6 +75,7 @@ function AppRouter() {
         <Route path="/users">{() => <AdminRoute component={UsersPage} />}</Route>
         <Route path="/users/:id">{() => <AdminRoute component={UserDetailPage} />}</Route>
         <Route path="/vms" component={VmsPage} />
+        <Route path="/vms/create">{() => <AdminRoute component={CreateVmPage} />}</Route>
         <Route path="/vms/:id" component={VmDetailPage} />
         <Route path="/vms/:id/console" component={VmConsolePage} />
         <Route path="/access">{() => <AdminRoute component={AccessPage} />}</Route>
