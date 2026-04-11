@@ -3,6 +3,7 @@ import { Server, Building2, Users, Monitor, Activity, Wifi, WifiOff, Play, Squar
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 function StatCard({
   label,
@@ -67,45 +68,59 @@ function ActivityItem({ event }: { event: { id: number; eventType: string; descr
 export default function DashboardPage() {
   const { data: stats } = useGetDashboardStats();
   const { data: activity } = useGetRecentActivity();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   return (
     <div className="p-6 md:p-8 space-y-8">
       <div>
         <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">Overview of your Proxmox infrastructure</p>
+        <p className="text-sm text-muted-foreground mt-1">Overview of your {isAdmin ? "Proxmox infrastructure" : "assigned virtual machines"}</p>
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          label="Clusters"
-          value={stats?.totalClusters}
-          sub={stats ? `${stats.onlineClusters} online` : undefined}
-          icon={Server}
-          color="bg-blue-500/10 text-blue-400"
-        />
-        <StatCard
-          label="Virtual Machines"
-          value={stats?.totalVms}
-          sub={stats ? `${stats.runningVms} running` : undefined}
-          icon={Monitor}
-          color="bg-green-500/10 text-green-400"
-        />
-        <StatCard
-          label="Tenants"
-          value={stats?.totalTenants}
-          sub={stats ? `${stats.activeTenants} active` : undefined}
-          icon={Building2}
-          color="bg-purple-500/10 text-purple-400"
-        />
-        <StatCard
-          label="Users"
-          value={stats?.totalUsers}
-          sub={stats ? `${stats.activeUsers} active` : undefined}
-          icon={Users}
-          color="bg-orange-500/10 text-orange-400"
-        />
-      </div>
+      {isAdmin ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard
+            label="Clusters"
+            value={stats?.totalClusters}
+            sub={stats ? `${stats.onlineClusters} online` : undefined}
+            icon={Server}
+            color="bg-blue-500/10 text-blue-400"
+          />
+          <StatCard
+            label="Virtual Machines"
+            value={stats?.totalVms}
+            sub={stats ? `${stats.runningVms} running` : undefined}
+            icon={Monitor}
+            color="bg-green-500/10 text-green-400"
+          />
+          <StatCard
+            label="Tenants"
+            value={stats?.totalTenants}
+            sub={stats ? `${stats.activeTenants} active` : undefined}
+            icon={Building2}
+            color="bg-purple-500/10 text-purple-400"
+          />
+          <StatCard
+            label="Users"
+            value={stats?.totalUsers}
+            sub={stats ? `${stats.activeUsers} active` : undefined}
+            icon={Users}
+            color="bg-orange-500/10 text-orange-400"
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4">
+          <StatCard
+            label="My Virtual Machines"
+            value={stats?.totalVms}
+            sub={stats ? `${stats.runningVms} running` : undefined}
+            icon={Monitor}
+            color="bg-green-500/10 text-green-400"
+          />
+        </div>
+      )}
 
       {/* VM Status row */}
       <div className="grid grid-cols-2 gap-4">
