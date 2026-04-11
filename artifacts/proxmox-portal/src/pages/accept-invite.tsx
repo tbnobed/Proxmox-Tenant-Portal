@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ const API = `${import.meta.env.BASE_URL}api`;
 export default function AcceptInvitePage({ onAccepted }: { onAccepted: () => void }) {
   const params = useParams<{ token: string }>();
   const token = params.token;
+  const [, navigate] = useLocation();
   const [invite, setInvite] = useState<{ email: string; role: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,6 +68,7 @@ export default function AcceptInvitePage({ onAccepted }: { onAccepted: () => voi
         return;
       }
 
+      navigate("/");
       onAccepted();
     } catch {
       setError("Unable to connect to the server");
