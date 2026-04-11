@@ -20,11 +20,29 @@ import AccessPage from "@/pages/access";
 import VmConsolePage from "@/pages/vm-console";
 import { Loader2 } from "lucide-react";
 
+let authRefreshCallback: (() => void) | null = null;
+export function setAuthRefreshCallback(cb: () => void) {
+  authRefreshCallback = cb;
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 30000,
-      retry: 1,
+      retry: (failureCount, error: any) => {
+        if (error?.status === 401 || error?.message?.includes("401")) {
+          authRefreshCallback?.();
+          return false;
+        }
+        return failureCount < 1;
+      },
+    },
+    mutations: {
+      onError: (error: any) => {
+        if (error?.status === 401 || error?.message?.includes("401")) {
+          authRefreshCallback?.();
+        }
+      },
     },
   },
 });
@@ -66,7 +84,13 @@ function AppRouter() {
 }
 
 function AuthGate() {
-  const { user, loading, refresh } = useAuth();
+  const { user, loading, refresh, logout } = useAuth();
+
+  useEffect(() => {
+    setAuthRefreshCallback(() => {
+      logout();
+    });
+  }, [logout]);
 
   if (loading) {
     return (
