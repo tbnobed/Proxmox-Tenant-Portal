@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and, sql } from "drizzle-orm";
-import { db, vmsTable, clustersTable, tenantsTable, activityTable } from "@workspace/db";
+import { eq, and, sql, inArray, or } from "drizzle-orm";
+import { db, vmsTable, clustersTable, tenantsTable, activityTable, userVmAccessTable, tenantVmAccessTable } from "@workspace/db";
 import {
   ListVmsQueryParams,
   CreateVmBody,
@@ -17,6 +17,8 @@ import {
 } from "@workspace/api-zod";
 import { performVmAction, getVncTicket, authenticate } from "../proxmox-client";
 import { createVncSession } from "../vnc-proxy";
+import { getSessionUser } from "../middleware/auth";
+import { requireAdmin } from "../middleware/auth";
 import crypto from "node:crypto";
 
 const router: IRouter = Router();
@@ -33,6 +35,30 @@ async function enrichVm(vm: typeof vmsTable.$inferSelect) {
   };
 }
 
+async function getAllowedVmIds(userId: number, tenantId: number | null): Promise<number[]> {
+  const directAccess = await db
+    .select({ vmId: userVmAccessTable.vmId })
+    .from(userVmAccessTable)
+    .where(eq(userVmAccessTable.userId, userId));
+
+  const vmIds = new Set(directAccess.map((r) => r.vmId));
+
+  if (tenantId) {
+    const tenantAccess = await db
+      .select({ vmId: tenantVmAccessTable.vmId })
+      .from(tenantVmAccessTable)
+      .where(eq(tenantVmAccessTable.tenantId, tenantId));
+    for (const r of tenantAccess) vmIds.add(r.vmId);
+  }
+
+  return Array.from(vmIds);
+}
+
+async function canAccessVm(userId: number, tenantId: number | null, vmId: number): Promise<boolean> {
+  const allowed = await getAllowedVmIds(userId, tenantId);
+  return allowed.includes(vmId);
+}
+
 router.get("/vms", async (req, res): Promise<void> => {
   const query = ListVmsQueryParams.safeParse(req.query);
   if (!query.success) {
@@ -40,10 +66,22 @@ router.get("/vms", async (req, res): Promise<void> => {
     return;
   }
 
+  const sessionUser = getSessionUser(req);
+  const isAdmin = sessionUser?.userRole === "admin";
+
   const conditions = [];
   if (query.data.clusterId != null) conditions.push(eq(vmsTable.clusterId, query.data.clusterId));
   if (query.data.tenantId != null) conditions.push(eq(vmsTable.tenantId, query.data.tenantId));
   if (query.data.status != null) conditions.push(eq(vmsTable.status, query.data.status));
+
+  if (!isAdmin && sessionUser) {
+    const allowedIds = await getAllowedVmIds(sessionUser.userId, sessionUser.tenantId);
+    if (allowedIds.length === 0) {
+      res.json([]);
+      return;
+    }
+    conditions.push(inArray(vmsTable.id, allowedIds));
+  }
 
   const rows = conditions.length > 0
     ? await db.select().from(vmsTable).where(and(...conditions)).orderBy(vmsTable.name)
@@ -64,7 +102,7 @@ router.get("/vms", async (req, res): Promise<void> => {
   res.json(ListVmsResponse.parse(result));
 });
 
-router.post("/vms", async (req, res): Promise<void> => {
+router.post("/vms", requireAdmin, async (req, res): Promise<void> => {
   const parsed = CreateVmBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -81,16 +119,28 @@ router.get("/vms/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
+  const sessionUser = getSessionUser(req);
+  const isAdmin = sessionUser?.userRole === "admin";
+
   const [vm] = await db.select().from(vmsTable).where(eq(vmsTable.id, params.data.id));
   if (!vm) {
     res.status(404).json({ error: "VM not found" });
     return;
   }
+
+  if (!isAdmin && sessionUser) {
+    const hasAccess = await canAccessVm(sessionUser.userId, sessionUser.tenantId, vm.id);
+    if (!hasAccess) {
+      res.status(403).json({ error: "Access denied to this VM" });
+      return;
+    }
+  }
+
   const enriched = await enrichVm(vm);
   res.json(GetVmResponse.parse(enriched));
 });
 
-router.patch("/vms/:id", async (req, res): Promise<void> => {
+router.patch("/vms/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = UpdateVmParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -121,7 +171,7 @@ router.patch("/vms/:id", async (req, res): Promise<void> => {
   res.json(UpdateVmResponse.parse(enriched));
 });
 
-router.delete("/vms/:id", async (req, res): Promise<void> => {
+router.delete("/vms/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = DeleteVmParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -150,6 +200,19 @@ router.post("/vms/:id/action", async (req, res): Promise<void> => {
   if (!vm) {
     res.status(404).json({ error: "VM not found" });
     return;
+  }
+
+  const sessionUser = getSessionUser(req);
+  if (sessionUser && sessionUser.userRole !== "admin") {
+    const hasAccess = await canAccessVm(sessionUser.userId, sessionUser.tenantId, vm.id);
+    if (!hasAccess) {
+      res.status(403).json({ error: "Access denied to this VM" });
+      return;
+    }
+    if (sessionUser.userRole === "viewer") {
+      res.status(403).json({ error: "Viewers cannot perform VM actions" });
+      return;
+    }
   }
 
   const action = parsed.data.action;
@@ -222,6 +285,15 @@ router.post("/vms/:id/console", async (req, res): Promise<void> => {
   if (!vm) {
     res.status(404).json({ error: "VM not found" });
     return;
+  }
+
+  const sessionUser = getSessionUser(req);
+  if (sessionUser && sessionUser.userRole !== "admin") {
+    const hasAccess = await canAccessVm(sessionUser.userId, sessionUser.tenantId, vm.id);
+    if (!hasAccess) {
+      res.status(403).json({ error: "Access denied to this VM" });
+      return;
+    }
   }
 
   const [cluster] = await db.select().from(clustersTable).where(eq(clustersTable.id, vm.clusterId));

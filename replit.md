@@ -10,6 +10,7 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 
 ### Features
 - **Authentication**: Session-based login/logout with password hashing (crypto.scrypt), auto-seeds default admin on first run
+- **RBAC**: Role-based access control — admins see everything; operators/viewers only see VMs granted via user_vm_access or tenant_vm_access. Admin-only routes (clusters, tenants, users, access control) return 403 for non-admins. Session revalidates role/tenant from DB on every request.
 - **Multi-cluster**: Register multiple Proxmox cluster endpoints
 - **Tenants**: Organizational units with user and VM assignment
 - **Users**: Roles (admin/operator/viewer), tenant membership, per-user VM access

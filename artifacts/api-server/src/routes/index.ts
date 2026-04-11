@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { requireAdmin } from "../middleware/auth";
 import healthRouter from "./health";
 import clustersRouter from "./clusters";
 import tenantsRouter from "./tenants";
@@ -10,11 +11,12 @@ import dashboardRouter from "./dashboard";
 const router: IRouter = Router();
 
 router.use(healthRouter);
-router.use(clustersRouter);
-router.use(tenantsRouter);
-router.use(usersRouter);
 router.use(vmsRouter);
-router.use(accessRouter);
 router.use(dashboardRouter);
+
+router.use(requireAdmin, clustersRouter);
+router.use(requireAdmin, tenantsRouter);
+router.use(requireAdmin, usersRouter);
+router.use(requireAdmin, accessRouter);
 
 export default router;

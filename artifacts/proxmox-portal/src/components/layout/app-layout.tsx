@@ -18,12 +18,12 @@ interface AppLayoutProps {
 }
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/clusters", label: "Clusters", icon: Server },
-  { href: "/tenants", label: "Tenants", icon: Building2 },
-  { href: "/users", label: "Users", icon: Users },
-  { href: "/vms", label: "Virtual Machines", icon: MonitorPlay },
-  { href: "/access", label: "Access Control", icon: ShieldAlert },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard, adminOnly: false },
+  { href: "/clusters", label: "Clusters", icon: Server, adminOnly: true },
+  { href: "/tenants", label: "Tenants", icon: Building2, adminOnly: true },
+  { href: "/users", label: "Users", icon: Users, adminOnly: true },
+  { href: "/vms", label: "Virtual Machines", icon: MonitorPlay, adminOnly: false },
+  { href: "/access", label: "Access Control", icon: ShieldAlert, adminOnly: true },
 ];
 
 export function AppLayout({ children }: AppLayoutProps) {
@@ -40,24 +40,26 @@ export function AppLayout({ children }: AppLayoutProps) {
           </div>
         </div>
         <nav className="flex-1 py-4 px-3 space-y-1">
-          {navItems.map((item) => {
-            const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
-            return (
-              <Link 
-                key={item.href} 
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium",
-                  isActive 
-                    ? "bg-primary/10 text-primary" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                )}
-              >
-                <item.icon className="w-4 h-4" />
-                {item.label}
-              </Link>
-            );
-          })}
+          {navItems
+            .filter((item) => !item.adminOnly || user?.role === "admin")
+            .map((item) => {
+              const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+              return (
+                <Link 
+                  key={item.href} 
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium",
+                    isActive 
+                      ? "bg-primary/10 text-primary" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  )}
+                >
+                  <item.icon className="w-4 h-4" />
+                  {item.label}
+                </Link>
+              );
+            })}
         </nav>
         <div className="p-4 border-t border-border text-xs text-muted-foreground">
           v0.1.0-alpha

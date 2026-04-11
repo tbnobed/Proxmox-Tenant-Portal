@@ -29,21 +29,36 @@ const queryClient = new QueryClient({
   },
 });
 
+function AdminRoute({ component: Component }: { component: React.ComponentType<any> }) {
+  const { user } = useAuth();
+  if (user?.role !== "admin") {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center space-y-2">
+          <p className="text-lg font-medium text-foreground">Access Denied</p>
+          <p className="text-sm text-muted-foreground">You don't have permission to view this page.</p>
+        </div>
+      </div>
+    );
+  }
+  return <Component />;
+}
+
 function AppRouter() {
   return (
     <AppLayout>
       <Switch>
         <Route path="/" component={DashboardPage} />
-        <Route path="/clusters" component={ClustersPage} />
-        <Route path="/clusters/:id" component={ClusterDetailPage} />
-        <Route path="/tenants" component={TenantsPage} />
-        <Route path="/tenants/:id" component={TenantDetailPage} />
-        <Route path="/users" component={UsersPage} />
-        <Route path="/users/:id" component={UserDetailPage} />
+        <Route path="/clusters">{() => <AdminRoute component={ClustersPage} />}</Route>
+        <Route path="/clusters/:id">{() => <AdminRoute component={ClusterDetailPage} />}</Route>
+        <Route path="/tenants">{() => <AdminRoute component={TenantsPage} />}</Route>
+        <Route path="/tenants/:id">{() => <AdminRoute component={TenantDetailPage} />}</Route>
+        <Route path="/users">{() => <AdminRoute component={UsersPage} />}</Route>
+        <Route path="/users/:id">{() => <AdminRoute component={UserDetailPage} />}</Route>
         <Route path="/vms" component={VmsPage} />
         <Route path="/vms/:id" component={VmDetailPage} />
         <Route path="/vms/:id/console" component={VmConsolePage} />
-        <Route path="/access" component={AccessPage} />
+        <Route path="/access">{() => <AdminRoute component={AccessPage} />}</Route>
         <Route component={NotFound} />
       </Switch>
     </AppLayout>
