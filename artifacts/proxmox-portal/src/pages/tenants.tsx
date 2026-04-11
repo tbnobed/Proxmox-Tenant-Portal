@@ -9,7 +9,7 @@ import {
 import type { Tenant, CreateTenantBody, UpdateTenantBody } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Plus, Pencil, Trash2, Building2, Users, Monitor } from "lucide-react";
+import { Plus, Pencil, Trash2, Building2, Users, Monitor, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -172,6 +172,11 @@ export default function TenantsPage() {
                 </div>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
+                <Link href={`/tenants/${t.id}`}>
+                  <Button variant="outline" size="sm" className="text-xs gap-1.5">
+                    <Settings2 className="w-3.5 h-3.5" /> Quotas & Access
+                  </Button>
+                </Link>
                 <Button variant="ghost" size="sm" onClick={() => openEdit(t)}>
                   <Pencil className="w-4 h-4" />
                 </Button>
