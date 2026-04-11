@@ -131,6 +131,11 @@ router.post("/vms", requireOperatorOrAdmin, async (req, res): Promise<void> => {
   }
 
   const [vm] = await db.insert(vmsTable).values(parsed.data).returning();
+
+  if (parsed.data.tenantId && vm) {
+    await db.insert(tenantVmAccessTable).values({ tenantId: parsed.data.tenantId, vmId: vm.id }).catch(() => {});
+  }
+
   const enriched = await enrichVm(vm);
   res.status(201).json(GetVmResponse.parse(enriched));
 

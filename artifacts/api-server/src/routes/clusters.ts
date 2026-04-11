@@ -496,7 +496,7 @@ router.post("/clusters/:id/create-vm", requireOperatorOrAdmin, async (req, res):
         } catch (e) { console.error("Auto-start failed:", e); }
       }
 
-      await db.insert(vmsTable).values({
+      const [createdVm] = await db.insert(vmsTable).values({
         vmId: vmid,
         name,
         node,
@@ -507,7 +507,12 @@ router.post("/clusters/:id/create-vm", requireOperatorOrAdmin, async (req, res):
         diskGb: diskSize,
         clusterId: cluster.id,
         ...(tenantId ? { tenantId } : {}),
-      });
+      }).returning();
+
+      if (tenantId && createdVm) {
+        const { tenantVmAccessTable } = await import("@workspace/db");
+        await db.insert(tenantVmAccessTable).values({ tenantId, vmId: createdVm.id }).catch(() => {});
+      }
 
       res.json({ success: true, upid: result.data?.data, type: "qemu", vmid });
     } else if (type === "lxc") {
@@ -573,7 +578,7 @@ router.post("/clusters/:id/create-vm", requireOperatorOrAdmin, async (req, res):
         } catch (e) { console.error("Auto-start failed:", e); }
       }
 
-      await db.insert(vmsTable).values({
+      const [createdLxc] = await db.insert(vmsTable).values({
         vmId: vmid,
         name,
         node,
@@ -584,7 +589,12 @@ router.post("/clusters/:id/create-vm", requireOperatorOrAdmin, async (req, res):
         diskGb: diskSize,
         clusterId: cluster.id,
         ...(tenantId ? { tenantId } : {}),
-      });
+      }).returning();
+
+      if (tenantId && createdLxc) {
+        const { tenantVmAccessTable } = await import("@workspace/db");
+        await db.insert(tenantVmAccessTable).values({ tenantId, vmId: createdLxc.id }).catch(() => {});
+      }
 
       res.json({ success: true, upid: result.data?.data, type: "lxc", vmid });
     } else {
