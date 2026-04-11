@@ -1,20 +1,46 @@
 import { useParams, Link } from "wouter";
-import { useGetVm, useVmConsole } from "@workspace/api-client-react";
-import { ArrowLeft, Monitor, Loader2, AlertCircle, ExternalLink } from "lucide-react";
+import { useGetVm, useVmConsole, useVmAction, getGetVmQueryKey, getListVmsQueryKey } from "@workspace/api-client-react";
+import { ArrowLeft, Monitor, Loader2, AlertCircle, ExternalLink, Play, Square, RotateCcw, Power } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
+
+function StatusDot({ status }: { status: string }) {
+  const color = status === "running" ? "bg-green-500" : status === "stopped" ? "bg-red-500" : "bg-yellow-500";
+  return <span className={cn("w-2 h-2 rounded-full inline-block", color)} />;
+}
 
 export default function VmConsolePage() {
   const params = useParams<{ id: string }>();
   const id = parseInt(params.id, 10);
-  const { data: vm, isLoading: vmLoading } = useGetVm(id, { query: { enabled: !!id } });
+  const { data: vm, isLoading: vmLoading } = useGetVm(id, { query: { enabled: !!id, refetchInterval: 5000 } });
   const consoleMutation = useVmConsole();
+  const actionMutation = useVmAction();
   const { toast } = useToast();
+  const qc = useQueryClient();
 
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [iframeUrl, setIframeUrl] = useState<string | null>(null);
+  const [actioning, setActioning] = useState<string | null>(null);
+
+  function handleAction(action: string) {
+    setActioning(action);
+    actionMutation.mutate({ id, data: { action } }, {
+      onSuccess: (result) => {
+        qc.invalidateQueries({ queryKey: getGetVmQueryKey(id) });
+        qc.invalidateQueries({ queryKey: getListVmsQueryKey() });
+        toast({ title: result.message });
+        setActioning(null);
+      },
+      onError: () => {
+        toast({ title: "Action failed", description: `Failed to ${action} VM`, variant: "destructive" });
+        setActioning(null);
+      },
+    });
+  }
 
   const launchConsole = useCallback(async (mode: "embed" | "tab") => {
     if (!vm || connecting) return;
@@ -26,7 +52,7 @@ export default function VmConsolePage() {
       const result = await consoleMutation.mutateAsync({ id });
       const base = import.meta.env.BASE_URL || "/";
       const vncTicket = (result as any).vncTicket || "";
-      const url = `${base}vnc.html?token=${result.token}&name=${encodeURIComponent(result.vmName)}&password=${encodeURIComponent(vncTicket)}`;
+      const url = `${base}vnc.html?token=${result.token}&name=${encodeURIComponent(result.vmName)}&password=${encodeURIComponent(vncTicket)}&vmId=${id}`;
 
       if (mode === "tab") {
         window.open(url, `vnc-${id}`, "noopener");
@@ -45,11 +71,11 @@ export default function VmConsolePage() {
 
   return (
     <div className="-m-6 md:-m-8 p-4 flex flex-col" style={{ height: "calc(100vh - 4rem)" }}>
-      <div className="flex items-center gap-3 mb-4 shrink-0">
+      <div className="flex items-center gap-3 mb-3 shrink-0">
         <Link href={`/vms/${id}`} className="text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-4 h-4" />
         </Link>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
             <Monitor className="w-5 h-5 text-primary" />
             Console: {vm?.name ?? "..."}
@@ -58,43 +84,70 @@ export default function VmConsolePage() {
             {vm ? `VMID ${vm.vmId} on ${vm.node} (${vm.type})` : "Loading..."}
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {!iframeUrl && !connecting && (
-            <>
-              <Button size="sm" onClick={() => launchConsole("embed")} disabled={vmLoading || !vm}>
-                <Monitor className="w-4 h-4 mr-1.5" />
-                Open Console
+
+        {vm && (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-xs text-muted-foreground flex items-center gap-1.5 mr-2">
+              <StatusDot status={vm.status} />
+              {vm.status}
+            </span>
+
+            {vm.status !== "running" && (
+              <Button size="sm" variant="outline" disabled={!!actioning} onClick={() => handleAction("start")} className="gap-1.5 text-xs">
+                <Play className="w-3.5 h-3.5 text-olive" />
+                {actioning === "start" ? "Starting..." : "Start"}
               </Button>
-              <Button size="sm" variant="outline" onClick={() => launchConsole("tab")} disabled={vmLoading || !vm}>
-                <ExternalLink className="w-4 h-4 mr-1.5" />
-                New Tab
+            )}
+            {vm.status === "running" && (
+              <>
+                <Button size="sm" variant="outline" disabled={!!actioning} onClick={() => handleAction("stop")} className="gap-1.5 text-xs">
+                  <Square className="w-3.5 h-3.5 text-red-400" />
+                  {actioning === "stop" ? "Stopping..." : "Stop"}
+                </Button>
+                <Button size="sm" variant="outline" disabled={!!actioning} onClick={() => handleAction("reboot")} className="gap-1.5 text-xs">
+                  <RotateCcw className="w-3.5 h-3.5 text-sand" />
+                  {actioning === "reboot" ? "Rebooting..." : "Reboot"}
+                </Button>
+              </>
+            )}
+
+            <div className="w-px h-6 bg-border mx-1" />
+
+            {!iframeUrl && !connecting && (
+              <>
+                <Button size="sm" onClick={() => launchConsole("embed")} disabled={vmLoading || !vm}>
+                  <Monitor className="w-4 h-4 mr-1.5" />
+                  Open Console
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => launchConsole("tab")} disabled={vmLoading || !vm}>
+                  <ExternalLink className="w-4 h-4 mr-1.5" />
+                  New Tab
+                </Button>
+              </>
+            )}
+            {connecting && (
+              <Button size="sm" disabled>
+                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                Connecting...
               </Button>
-            </>
-          )}
-          {connecting && (
-            <Button size="sm" disabled>
-              <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-              Connecting...
-            </Button>
-          )}
-          {iframeUrl && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-olive flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-olive animate-pulse" />
-                Active
-              </span>
-              <Button size="sm" variant="outline" onClick={() => launchConsole("tab")}>
-                <ExternalLink className="w-4 h-4 mr-1.5" />
-                Pop Out
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => {
-                setIframeUrl(null);
-              }}>
-                Close
-              </Button>
-            </div>
-          )}
-        </div>
+            )}
+            {iframeUrl && (
+              <>
+                <span className="text-xs text-olive flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-olive animate-pulse" />
+                  Active
+                </span>
+                <Button size="sm" variant="outline" onClick={() => launchConsole("tab")}>
+                  <ExternalLink className="w-4 h-4 mr-1.5" />
+                  Pop Out
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setIframeUrl(null)}>
+                  Close
+                </Button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {error && (
@@ -128,9 +181,15 @@ export default function VmConsolePage() {
               <p className="text-lg font-medium">VM Console</p>
               <p className="text-sm mt-1">Click "Open Console" to start the VNC session</p>
               {vm?.status !== "running" && vm && (
-                <p className="text-sm text-sand mt-3">
-                  Note: VM is currently {vm.status}. Start it first for console access.
-                </p>
+                <div className="mt-4 text-center">
+                  <p className="text-sm text-sand mb-2">
+                    VM is currently {vm.status}. Start it first for console access.
+                  </p>
+                  <Button size="sm" onClick={() => handleAction("start")} disabled={!!actioning}>
+                    <Play className="w-3.5 h-3.5 mr-1.5" />
+                    {actioning === "start" ? "Starting..." : "Start VM"}
+                  </Button>
+                </div>
               )}
             </div>
           )}

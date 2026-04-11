@@ -4,25 +4,46 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VM Console</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: system-ui, -apple-system, sans-serif; }
-    #status {
+    #toolbar {
       position: fixed; top: 0; left: 0; right: 0;
-      padding: 12px 20px; background: #1a1a2e; color: #888;
+      padding: 8px 16px; background: #1a1a2e; color: #888;
       font-size: 13px; z-index: 10; display: flex;
-      align-items: center; gap: 10px; border-bottom: 1px solid #2a2a3e;
+      align-items: center; gap: 8px; border-bottom: 1px solid #2a2a3e;
     }
-    #status .dot { width: 8px; height: 8px; border-radius: 50%; background: #666; }
-    #status .dot.connected { background: #4ade80; }
-    #status .dot.error { background: #f87171; }
-    #status .title { font-weight: 600; color: #e0e0e0; }
-    #status .info { flex: 1; }
-    #status button {
-      background: #2563eb; color: white; border: none; border-radius: 6px;
-      padding: 6px 14px; cursor: pointer; font-size: 13px;
+    #toolbar .dot { width: 8px; height: 8px; border-radius: 50%; background: #666; flex-shrink: 0; }
+    #toolbar .dot.connected { background: #4ade80; }
+    #toolbar .dot.error { background: #f87171; }
+    #toolbar .title { font-weight: 600; color: #e0e0e0; white-space: nowrap; }
+    #toolbar .info { color: #888; white-space: nowrap; }
+    #toolbar .spacer { flex: 1; }
+    #toolbar .sep { width: 1px; height: 20px; background: #2a2a3e; flex-shrink: 0; }
+
+    .vm-status { display: flex; align-items: center; gap: 5px; font-size: 12px; padding: 0 6px; }
+    .vm-status .sdot { width: 6px; height: 6px; border-radius: 50%; }
+    .vm-status .sdot.running { background: #4ade80; }
+    .vm-status .sdot.stopped { background: #f87171; }
+    .vm-status .sdot.other { background: #facc15; }
+
+    .tbtn {
+      background: #2a2a3e; color: #ccc; border: 1px solid #3a3a4e; border-radius: 5px;
+      padding: 4px 10px; cursor: pointer; font-size: 12px; white-space: nowrap;
+      display: flex; align-items: center; gap: 4px; transition: all 0.15s;
     }
-    #status button:hover { background: #1d4ed8; }
+    .tbtn:hover { background: #3a3a4e; color: #fff; }
+    .tbtn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .tbtn.start { border-color: #53561F44; }
+    .tbtn.start:hover { background: #53561F33; color: #E6CAA7; }
+    .tbtn.stop { border-color: #f8717144; }
+    .tbtn.stop:hover { background: #f8717122; color: #f87171; }
+    .tbtn.reboot { border-color: #E6CAA744; }
+    .tbtn.reboot:hover { background: #E6CAA722; color: #E6CAA7; }
+    .tbtn.cad { background: #2563eb; color: white; border-color: #2563eb; }
+    .tbtn.cad:hover { background: #1d4ed8; }
+
     #screen { position: absolute; top: 42px; bottom: 0; left: 0; right: 0; }
     #error-msg {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -38,14 +59,33 @@
       border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 12px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 700px) {
+      #toolbar { padding: 6px 10px; gap: 4px; }
+      .tbtn { padding: 3px 7px; font-size: 11px; }
+      .vm-status { font-size: 11px; }
+    }
   </style>
 </head>
 <body>
-  <div id="status">
+  <div id="toolbar">
     <span class="dot" id="statusDot"></span>
     <span class="title" id="vmTitle">VM Console</span>
     <span class="info" id="statusText">Initializing...</span>
-    <button onclick="sendCtrlAltDel()">Ctrl+Alt+Del</button>
+    <span class="spacer"></span>
+
+    <div class="vm-status" id="vmStatus" style="display:none">
+      <span class="sdot" id="vmStatusDot"></span>
+      <span id="vmStatusText"></span>
+    </div>
+    <span class="sep" id="actionSep" style="display:none"></span>
+
+    <button class="tbtn start" id="btnStart" style="display:none" onclick="vmAction('start')">&#9654; Start</button>
+    <button class="tbtn stop" id="btnStop" style="display:none" onclick="vmAction('stop')">&#9632; Stop</button>
+    <button class="tbtn reboot" id="btnReboot" style="display:none" onclick="vmAction('reboot')">&#8635; Reboot</button>
+
+    <span class="sep"></span>
+    <button class="tbtn cad" onclick="sendCtrlAltDel()">Ctrl+Alt+Del</button>
   </div>
   <div id="screen"></div>
   <div id="loading">
@@ -59,9 +99,12 @@
     const token = params.get("token");
     const vmName = decodeURIComponent(params.get("name") || "VM");
     const vncPassword = params.get("password") || "";
+    const vmId = params.get("vmId");
 
     document.getElementById("vmTitle").textContent = vmName + " Console";
     document.title = vmName + " - Console";
+
+    let currentVmStatus = null;
 
     function showError(msg) {
       document.getElementById("loading").style.display = "none";
@@ -72,6 +115,82 @@
 
     function updateStatus(text) {
       document.getElementById("statusText").textContent = text;
+    }
+
+    function updateVmStatus(status) {
+      currentVmStatus = status;
+      const statusEl = document.getElementById("vmStatus");
+      const dotEl = document.getElementById("vmStatusDot");
+      const textEl = document.getElementById("vmStatusText");
+      const sepEl = document.getElementById("actionSep");
+      const btnStart = document.getElementById("btnStart");
+      const btnStop = document.getElementById("btnStop");
+      const btnReboot = document.getElementById("btnReboot");
+
+      statusEl.style.display = "flex";
+      sepEl.style.display = "block";
+      dotEl.className = "sdot " + (status === "running" ? "running" : status === "stopped" ? "stopped" : "other");
+      textEl.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+
+      if (status === "running") {
+        btnStart.style.display = "none";
+        btnStop.style.display = "flex";
+        btnReboot.style.display = "flex";
+      } else if (status === "stopped") {
+        btnStart.style.display = "flex";
+        btnStop.style.display = "none";
+        btnReboot.style.display = "none";
+      } else {
+        btnStart.style.display = "none";
+        btnStop.style.display = "none";
+        btnReboot.style.display = "none";
+      }
+    }
+
+    async function fetchVmStatus() {
+      if (!vmId) return;
+      try {
+        const res = await fetch(`/api/vms/${vmId}`, { credentials: "include" });
+        if (res.ok) {
+          const vm = await res.json();
+          updateVmStatus(vm.status);
+        }
+      } catch {}
+    }
+
+    window.vmAction = async function(action) {
+      if (!vmId) return;
+      const btnMap = { start: "btnStart", stop: "btnStop", reboot: "btnReboot" };
+      const btn = document.getElementById(btnMap[action]);
+      if (btn) { btn.disabled = true; btn.textContent = action === "start" ? "Starting..." : action === "stop" ? "Stopping..." : "Rebooting..."; }
+
+      try {
+        const res = await fetch(`/api/vms/${vmId}/action`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action })
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || `HTTP ${res.status}`);
+        }
+      } catch (err) {
+        alert("Action failed: " + err.message);
+      }
+
+      setTimeout(fetchVmStatus, 2000);
+      setTimeout(fetchVmStatus, 5000);
+
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = action === "start" ? "&#9654; Start" : action === "stop" ? "&#9632; Stop" : "&#8635; Reboot";
+      }
+    };
+
+    if (vmId) {
+      fetchVmStatus();
+      setInterval(fetchVmStatus, 5000);
     }
 
     if (!token) {
