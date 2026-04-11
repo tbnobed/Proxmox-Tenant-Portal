@@ -44,7 +44,7 @@ export default function VmConsolePage() {
   }, [vm, id, connecting]);
 
   return (
-    <div className="p-6 md:p-8 flex flex-col h-full">
+    <div className="-m-6 md:-m-8 p-4 flex flex-col" style={{ height: "calc(100vh - 4rem)" }}>
       <div className="flex items-center gap-3 mb-4 shrink-0">
         <Link href={`/vms/${id}`} className="text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-4 h-4" />
