@@ -3,7 +3,6 @@ import { eq, sql, and } from "drizzle-orm";
 import { db, clustersTable, vmsTable } from "@workspace/db";
 import { requireAdmin, requireOperatorOrAdmin, getSessionUser } from "../middleware/auth";
 import {
-  syncFromProxmox,
   getNodeStatuses,
   getNextVmId,
   getNodeList,
@@ -13,6 +12,7 @@ import {
   createQemuVm,
   createLxcContainer,
 } from "../proxmox-client";
+import { syncCluster } from "../cluster-auto-sync";
 import {
   CreateClusterBody,
   GetClusterParams,
@@ -175,79 +175,13 @@ router.post("/clusters/:id/sync", requireAdmin, async (req, res): Promise<void> 
   }
 
   try {
-    const proxmoxVms = await syncFromProxmox(
-      cluster.host,
-      cluster.port,
-      cluster.username,
-      cluster.passwordHash,
-      cluster.realm
-    );
-
-    let added = 0;
-    let updated = 0;
-
-    const existingVms = await db
-      .select()
-      .from(vmsTable)
-      .where(eq(vmsTable.clusterId, cluster.id));
-
-    const existingByVmId = new Map(existingVms.map(v => [v.vmId, v]));
-    const seenVmIds = new Set<number>();
-
-    for (const pvm of proxmoxVms) {
-      seenVmIds.add(pvm.vmId);
-      const existing = existingByVmId.get(pvm.vmId);
-
-      if (existing) {
-        await db
-          .update(vmsTable)
-          .set({
-            name: pvm.name,
-            node: pvm.node,
-            type: pvm.type,
-            status: pvm.status,
-            cpus: pvm.cpus,
-            memoryMb: pvm.memoryMb,
-            diskGb: pvm.diskGb,
-            tags: pvm.tags,
-            ipAddress: pvm.ipAddress,
-          })
-          .where(eq(vmsTable.id, existing.id));
-        updated++;
-      } else {
-        await db.insert(vmsTable).values({
-          vmId: pvm.vmId,
-          name: pvm.name,
-          node: pvm.node,
-          type: pvm.type,
-          status: pvm.status,
-          cpus: pvm.cpus,
-          memoryMb: pvm.memoryMb,
-          diskGb: pvm.diskGb,
-          tags: pvm.tags,
-          ipAddress: pvm.ipAddress,
-          clusterId: cluster.id,
-        });
-        added++;
-      }
-    }
-
-    const removed = existingVms.filter(v => !seenVmIds.has(v.vmId));
-    for (const rv of removed) {
-      await db.delete(vmsTable).where(eq(vmsTable.id, rv.id));
-    }
-
-    await db
-      .update(clustersTable)
-      .set({ status: "online" })
-      .where(eq(clustersTable.id, cluster.id));
-
+    const result = await syncCluster(cluster);
     res.json(
       SyncClusterResponse.parse({
-        synced: proxmoxVms.length,
-        added,
-        updated,
-        message: `Sync complete. ${added} added, ${updated} updated, ${removed.length} removed.`,
+        synced: result.added + result.updated,
+        added: result.added,
+        updated: result.updated,
+        message: `Sync complete. ${result.added} added, ${result.updated} updated, ${result.removed} removed.`,
       })
     );
   } catch (err: unknown) {

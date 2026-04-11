@@ -17,7 +17,7 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 - **VMs**: Cross-cluster VM list, start/stop/reboot actions, filtering
 - **Create VM**: Full creation form for QEMU VMs and LXC containers with ISO/template selection, network bridge picker, storage pool, CPU/memory/disk config, VLAN tags, and auto-start option. Route: `/vms/create`, accessible to admin and operator roles. Operators see only their tenant's allowed clusters; tenant is auto-assigned. Admins see all clusters and a tenant selector dropdown.
 - **VM Console**: VNC console viewer via noVNC (WebSocket proxy to Proxmox VNC)
-- **Real Proxmox Integration**: Sync VMs, send start/stop/reboot commands to actual Proxmox API
+- **Real Proxmox Integration**: Sync VMs, send start/stop/reboot commands to actual Proxmox API. Auto-sync runs every 5 minutes (configurable via `CLUSTER_SYNC_INTERVAL_MS` env var) to keep VM data (status, CPU, memory, disk, IP) up to date. Initial sync fires 10s after server startup. Module: `cluster-auto-sync.ts`
 - **Node Status**: Per-cluster expandable node panels showing real-time CPU, RAM, disk, swap, IO delay, KSM, load avg, kernel version, PVE version, boot mode, uptime — fetched live from Proxmox API
 - **Access Control**: Grant/revoke tenant-VM and user-VM access
 - **Dashboard**: Stats, running/stopped counts, recent activity feed, infrastructure health panel. Non-admin users get a "My VMs Health" panel showing each assigned VM with health dot, status badge, specs (vCPU/RAM/Disk), cluster name, IP address, and clickable links to VM details. Includes attention banner for stopped/paused VMs and running/stopped/other summary strip.

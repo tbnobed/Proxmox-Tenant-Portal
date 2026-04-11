@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { setupVncProxy, handleUpgrade } from "./vnc-proxy";
 import { seedDefaultAdmin } from "./seed-admin";
 import { startHealthDigestScheduler } from "./health-digest";
+import { startClusterAutoSync } from "./cluster-auto-sync";
 
 const rawPort = process.env["PORT"];
 
@@ -35,6 +36,7 @@ const server = app.listen(port, async (err) => {
   }
 
   startHealthDigestScheduler();
+  startClusterAutoSync();
 });
 
 server.on("upgrade", (req, socket, head) => {
