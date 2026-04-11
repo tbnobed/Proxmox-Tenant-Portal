@@ -105,6 +105,7 @@
     document.title = vmName + " - Console";
 
     let currentVmStatus = null;
+    const isEmbedded = window.self !== window.top;
 
     function showError(msg) {
       document.getElementById("loading").style.display = "none";
@@ -126,6 +127,15 @@
       const btnStart = document.getElementById("btnStart");
       const btnStop = document.getElementById("btnStop");
       const btnReboot = document.getElementById("btnReboot");
+
+      if (isEmbedded) {
+        statusEl.style.display = "none";
+        sepEl.style.display = "none";
+        btnStart.style.display = "none";
+        btnStop.style.display = "none";
+        btnReboot.style.display = "none";
+        return;
+      }
 
       statusEl.style.display = "flex";
       sepEl.style.display = "block";
