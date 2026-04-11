@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
-import { Server, Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import logoImg from "@assets/ProxHub2_1775891124848.png";
 
 interface LoginPageProps {
   onLogin: () => void;
@@ -46,10 +47,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 text-primary mb-2">
-            <Server className="w-8 h-8" />
+          <div className="flex items-center justify-center mb-3">
+            <img src={logoImg} alt="ProxHub" className="h-14 w-auto" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Proxmox Portal</h1>
           <p className="text-sm text-muted-foreground mt-1">Sign in to manage your infrastructure</p>
         </div>
 
