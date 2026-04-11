@@ -6,6 +6,7 @@ import {
   GetRecentActivityResponse,
 } from "@workspace/api-zod";
 import { getSessionUser } from "../middleware/auth";
+import { getNodeStatuses } from "../proxmox-client";
 
 const router: IRouter = Router();
 
@@ -106,6 +107,73 @@ router.get("/dashboard/activity", async (req, res): Promise<void> => {
     createdAt: r.createdAt.toISOString(),
   }));
   res.json(GetRecentActivityResponse.parse(result));
+});
+
+router.get("/dashboard/health", async (req, res): Promise<void> => {
+  const sessionUser = getSessionUser(req);
+  if (sessionUser?.userRole !== "admin") {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+
+  const allClusters = await db.select().from(clustersTable);
+  const allVms = await db.select({ id: vmsTable.id, status: vmsTable.status, clusterId: vmsTable.clusterId }).from(vmsTable);
+
+  const clusterHealthResults = await Promise.allSettled(
+    allClusters.map(async (cluster) => {
+      try {
+        const nodes = await getNodeStatuses(
+          cluster.host,
+          cluster.port,
+          cluster.username,
+          cluster.passwordHash,
+          cluster.realm
+        );
+        const clusterVms = allVms.filter(v => v.clusterId === cluster.id);
+        return {
+          clusterId: cluster.id,
+          clusterName: cluster.name,
+          status: cluster.status,
+          nodes: nodes.map(n => ({
+            name: n.node,
+            status: n.status,
+            cpuUsage: n.cpuUsage,
+            memUsed: n.memUsed,
+            memTotal: n.memTotal,
+            rootFsUsed: n.rootFsUsed,
+            rootFsTotal: n.rootFsTotal,
+            uptime: n.uptime,
+          })),
+          vms: {
+            total: clusterVms.length,
+            running: clusterVms.filter(v => v.status === "running").length,
+            stopped: clusterVms.filter(v => v.status === "stopped").length,
+            paused: clusterVms.filter(v => v.status === "paused").length,
+          },
+        };
+      } catch {
+        const clusterVms = allVms.filter(v => v.clusterId === cluster.id);
+        return {
+          clusterId: cluster.id,
+          clusterName: cluster.name,
+          status: "offline" as const,
+          nodes: [],
+          vms: {
+            total: clusterVms.length,
+            running: clusterVms.filter(v => v.status === "running").length,
+            stopped: clusterVms.filter(v => v.status === "stopped").length,
+            paused: clusterVms.filter(v => v.status === "paused").length,
+          },
+        };
+      }
+    })
+  );
+
+  const clusters = clusterHealthResults
+    .filter((r): r is PromiseFulfilledResult<any> => r.status === "fulfilled")
+    .map(r => r.value);
+
+  res.json({ clusters });
 });
 
 export default router;

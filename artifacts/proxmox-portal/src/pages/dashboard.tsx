@@ -1,9 +1,77 @@
+import { useState, useEffect, useCallback } from "react";
 import { useGetDashboardStats, useGetRecentActivity } from "@workspace/api-client-react";
-import { Server, Building2, Users, Monitor, Activity, Wifi, WifiOff, Play, Square } from "lucide-react";
+import { Server, Building2, Users, Monitor, Activity, Play, Square, HeartPulse, Cpu, HardDrive, MemoryStick, ChevronDown, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { Link } from "wouter";
+import {
+  computeNodeHealth,
+  computeVmHealth,
+  aggregateHealth,
+  getHealthResult,
+  type HealthLevel,
+} from "@/lib/health";
+
+interface ClusterHealthData {
+  clusterId: number;
+  clusterName: string;
+  status: string;
+  nodes: {
+    name: string;
+    status: string;
+    cpuUsage: number;
+    memUsed: number;
+    memTotal: number;
+    rootFsUsed: number;
+    rootFsTotal: number;
+    uptime: number;
+  }[];
+  vms: { total: number; running: number; stopped: number; paused: number };
+}
+
+function useInfraHealth(enabled: boolean) {
+  const [data, setData] = useState<ClusterHealthData[] | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetch_ = useCallback(async () => {
+    setLoading(true);
+    try {
+      const base = import.meta.env.BASE_URL || "/";
+      const res = await fetch(`${base}api/dashboard/health`, { credentials: "include" });
+      if (res.ok) {
+        const json = await res.json();
+        setData(json.clusters);
+      }
+    } catch {}
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (enabled) fetch_();
+  }, [enabled, fetch_]);
+
+  return { data, loading, refetch: fetch_ };
+}
+
+function HealthDot({ level, size = "sm" }: { level: HealthLevel; size?: "sm" | "md" }) {
+  const h = getHealthResult(level);
+  const sizeClass = size === "md" ? "w-3 h-3" : "w-2 h-2";
+  return (
+    <span className={cn(sizeClass, "rounded-full inline-block shrink-0", h.dotColor, level === "healthy" && "animate-pulse")} />
+  );
+}
+
+function HealthBadge({ level }: { level: HealthLevel }) {
+  const h = getHealthResult(level);
+  return (
+    <span className={cn("text-xs px-2 py-0.5 rounded border font-medium inline-flex items-center gap-1.5", h.bgColor, h.color, h.borderColor)}>
+      <HealthDot level={level} />
+      {h.label}
+    </span>
+  );
+}
 
 function StatCard({
   label,
@@ -65,11 +133,148 @@ function ActivityItem({ event }: { event: { id: number; eventType: string; descr
   );
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KiB", "MiB", "GiB", "TiB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+}
+
+function formatUptime(seconds: number): string {
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  if (d > 0) return `${d}d ${h}h`;
+  return `${h}h`;
+}
+
+function UsageBar({ percent, label, value }: { percent: number; label: string; value: string }) {
+  const color = percent > 90 ? "bg-red-500" : percent > 75 ? "bg-yellow-500" : "bg-emerald-500";
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-xs">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="text-foreground font-medium">{value}</span>
+      </div>
+      <div className="w-full h-1.5 bg-secondary/30 rounded-full overflow-hidden">
+        <div className={cn("h-full rounded-full transition-all", color)} style={{ width: `${Math.min(percent, 100)}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function InfraHealthPanel({ clusters }: { clusters: ClusterHealthData[] }) {
+  const [expandedCluster, setExpandedCluster] = useState<number | null>(null);
+
+  const allNodeHealthLevels = clusters.flatMap(c =>
+    c.nodes.length > 0
+      ? c.nodes.map(n => computeNodeHealth(n))
+      : (c.status === "offline" ? ["offline" as HealthLevel] : ["unknown" as HealthLevel])
+  );
+  const overallHealth = aggregateHealth(allNodeHealthLevels);
+
+  const totalNodes = clusters.reduce((s, c) => s + c.nodes.length, 0);
+  const onlineNodes = clusters.reduce((s, c) => s + c.nodes.filter(n => n.status === "online").length, 0);
+  const totalVms = clusters.reduce((s, c) => s + c.vms.total, 0);
+  const runningVms = clusters.reduce((s, c) => s + c.vms.running, 0);
+
+  return (
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
+        <HeartPulse className="w-5 h-5 text-emerald-400" />
+        <div className="flex-1">
+          <h2 className="text-sm font-semibold text-foreground">Infrastructure Health</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {totalNodes} node{totalNodes !== 1 ? "s" : ""} across {clusters.length} cluster{clusters.length !== 1 ? "s" : ""} — {runningVms}/{totalVms} VMs running
+          </p>
+        </div>
+        <HealthBadge level={overallHealth} />
+      </div>
+
+      <div className="divide-y divide-border">
+        {clusters.map(cluster => {
+          const clusterNodeLevels = cluster.nodes.length > 0
+            ? cluster.nodes.map(n => computeNodeHealth(n))
+            : [cluster.status === "offline" ? "offline" as HealthLevel : "unknown" as HealthLevel];
+          const clusterHealth = aggregateHealth(clusterNodeLevels);
+          const isExpanded = expandedCluster === cluster.clusterId;
+
+          return (
+            <div key={cluster.clusterId}>
+              <button
+                className="w-full flex items-center gap-3 px-5 py-3 hover:bg-muted/20 transition-colors text-left"
+                onClick={() => setExpandedCluster(isExpanded ? null : cluster.clusterId)}
+              >
+                {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
+                <HealthDot level={clusterHealth} size="md" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium text-foreground">{cluster.clusterName}</span>
+                  <span className="text-xs text-muted-foreground ml-2">
+                    {cluster.nodes.length} node{cluster.nodes.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 text-xs shrink-0">
+                  <span className="text-muted-foreground">
+                    <span className="text-emerald-400 font-medium">{cluster.vms.running}</span> running
+                  </span>
+                  {cluster.vms.stopped > 0 && (
+                    <span className="text-muted-foreground">
+                      <span className="text-red-400 font-medium">{cluster.vms.stopped}</span> stopped
+                    </span>
+                  )}
+                </div>
+                <HealthBadge level={clusterHealth} />
+              </button>
+
+              {isExpanded && cluster.nodes.length > 0 && (
+                <div className="px-5 pb-4 pt-1">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    {cluster.nodes.map(node => {
+                      const nodeHealth = computeNodeHealth(node);
+                      const cpuPercent = node.cpuUsage * 100;
+                      const memPercent = node.memTotal > 0 ? (node.memUsed / node.memTotal) * 100 : 0;
+                      const diskPercent = node.rootFsTotal > 0 ? (node.rootFsUsed / node.rootFsTotal) * 100 : 0;
+
+                      return (
+                        <div key={node.name} className="rounded-md border border-border/60 bg-secondary/5 p-3 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <HealthDot level={nodeHealth} size="md" />
+                              <span className="text-sm font-medium text-foreground">{node.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-muted-foreground">up {formatUptime(node.uptime)}</span>
+                              <HealthBadge level={nodeHealth} />
+                            </div>
+                          </div>
+                          <UsageBar percent={cpuPercent} label="CPU" value={`${cpuPercent.toFixed(1)}%`} />
+                          <UsageBar percent={memPercent} label="RAM" value={`${formatBytes(node.memUsed)} / ${formatBytes(node.memTotal)}`} />
+                          <UsageBar percent={diskPercent} label="Disk" value={`${diskPercent.toFixed(1)}%`} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {isExpanded && cluster.nodes.length === 0 && (
+                <div className="px-5 pb-4 pt-1">
+                  <p className="text-sm text-muted-foreground">Unable to reach cluster — no node data available</p>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { data: stats } = useGetDashboardStats();
   const { data: activity } = useGetRecentActivity();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
+  const { data: healthData, loading: healthLoading } = useInfraHealth(isAdmin);
 
   return (
     <div className="p-6 md:p-8 space-y-8">
@@ -78,7 +283,6 @@ export default function DashboardPage() {
         <p className="text-sm text-muted-foreground mt-1">Overview of your {isAdmin ? "Proxmox infrastructure" : "assigned virtual machines"}</p>
       </div>
 
-      {/* Stats grid */}
       {isAdmin ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard
@@ -122,7 +326,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* VM Status row */}
       <div className="grid grid-cols-2 gap-4">
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-center gap-2 mb-3">
@@ -148,7 +351,14 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Recent Activity */}
+      {isAdmin && (
+        healthLoading ? (
+          <Skeleton className="h-48 w-full rounded-lg" />
+        ) : healthData && healthData.length > 0 ? (
+          <InfraHealthPanel clusters={healthData} />
+        ) : null
+      )}
+
       <div className="rounded-lg border border-border bg-card">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
           <Activity className="w-4 h-4 text-primary" />

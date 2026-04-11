@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { computeNodeHealth, aggregateHealth, getHealthResult, type HealthLevel } from "@/lib/health";
 
 interface NodeStatus {
   node: string;
@@ -81,6 +82,17 @@ function UsageBar({ percent, color }: { percent: number; color: string }) {
   );
 }
 
+function NodeHealthBadge({ node }: { node: NodeStatus }) {
+  const level = computeNodeHealth(node);
+  const h = getHealthResult(level);
+  return (
+    <span className={cn("text-[10px] px-1.5 py-0.5 rounded border font-medium inline-flex items-center gap-1", h.bgColor, h.color, h.borderColor)}>
+      <span className={cn("w-1.5 h-1.5 rounded-full", h.dotColor)} />
+      {h.label}
+    </span>
+  );
+}
+
 function NodeStatusCard({ node }: { node: NodeStatus }) {
   const cpuPercent = (node.cpuUsage * 100);
   const memPercent = node.memTotal > 0 ? (node.memUsed / node.memTotal * 100) : 0;
@@ -95,7 +107,10 @@ function NodeStatusCard({ node }: { node: NodeStatus }) {
           <span className="text-sm font-semibold text-sand">{node.node}</span>
           {node.status !== "online" && <span className="text-[10px] text-red-400">{node.status}</span>}
         </div>
-        <span className="text-[10px] text-muted-foreground">uptime {formatUptime(node.uptime)}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground">uptime {formatUptime(node.uptime)}</span>
+          <NodeHealthBadge node={node} />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-xs">

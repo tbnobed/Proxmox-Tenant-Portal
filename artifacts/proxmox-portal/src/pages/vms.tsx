@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { computeVmHealth, getHealthResult } from "@/lib/health";
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -29,6 +30,14 @@ function StatusBadge({ status }: { status: string }) {
     <span className={cn("text-xs px-2 py-0.5 rounded border font-medium", map[status] ?? map.stopped)}>
       {status}
     </span>
+  );
+}
+
+function VmHealthDot({ status }: { status: string }) {
+  const level = computeVmHealth({ status });
+  const h = getHealthResult(level);
+  return (
+    <span className={cn("w-2 h-2 rounded-full inline-block shrink-0", h.dotColor)} title={h.label} />
   );
 }
 
@@ -166,7 +175,12 @@ export default function VmsPage() {
                     </Link>
                     <p className="text-xs text-muted-foreground mt-0.5">ID: {vm.vmId} — {vm.type.toUpperCase()} — {vm.node}</p>
                   </td>
-                  <td className="px-4 py-3"><StatusBadge status={vm.status} /></td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <VmHealthDot status={vm.status} />
+                      <StatusBadge status={vm.status} />
+                    </div>
+                  </td>
                   <td className="px-4 py-3 hidden md:table-cell text-sm text-muted-foreground">{vm.clusterName}</td>
                   <td className="px-4 py-3 hidden lg:table-cell text-sm text-muted-foreground">{vm.tenantName ?? "—"}</td>
                   <td className="px-4 py-3 hidden lg:table-cell text-xs text-muted-foreground">

@@ -20,7 +20,8 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 - **Real Proxmox Integration**: Sync VMs, send start/stop/reboot commands to actual Proxmox API
 - **Node Status**: Per-cluster expandable node panels showing real-time CPU, RAM, disk, swap, IO delay, KSM, load avg, kernel version, PVE version, boot mode, uptime — fetched live from Proxmox API
 - **Access Control**: Grant/revoke tenant-VM and user-VM access
-- **Dashboard**: Stats, running/stopped counts, recent activity feed
+- **Dashboard**: Stats, running/stopped counts, recent activity feed, infrastructure health panel
+- **Health Monitoring**: Real-time health indicators across dashboard (infrastructure overview with expandable cluster/node details), clusters page (per-node health badge), and VMs page (health dot next to status). Health computed from CPU/RAM/disk thresholds. Utility: `lib/health.ts`
 
 ### Proxmox Integration Details
 - `proxmox-client.ts`: Handles auth (ticket API), node discovery, VM sync, VM actions, and VNC ticket generation
@@ -75,6 +76,7 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 - `/access/user-vms` — Grant/revoke
 - `/dashboard/stats` — Aggregated stats
 - `/dashboard/activity` — Recent events
+- `/dashboard/health` — Live infrastructure health (admin only, fetches node statuses from all clusters)
 - `/vnc` — WebSocket proxy endpoint for VNC connections
 
 ## Frontend Pages (artifacts/proxmox-portal/src/pages/)
