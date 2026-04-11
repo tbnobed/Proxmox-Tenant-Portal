@@ -1,0 +1,54 @@
+[+] Building 478.8s (41/41) FINISHED
+ => [internal] load local bake definitions                                                                                                                            0.0s
+ => => reading from stdin 536B                                                                                                                                        0.0s
+ => [internal] load build definition from Dockerfile                                                                                                                  0.1s
+ => => transferring dockerfile: 2.30kB                                                                                                                                0.0s
+ => [internal] load metadata for docker.io/library/node:20-slim                                                                                                       0.5s
+ => [internal] load .dockerignore                                                                                                                                     0.1s
+ => => transferring context: 292B                                                                                                                                     0.0s
+ => [internal] load build context                                                                                                                                     0.1s
+ => => transferring context: 207.25kB                                                                                                                                 0.0s
+ => [base 1/3] FROM docker.io/library/node:20-slim@sha256:f93745c153377ee2fbbdd6e24efcd03cd2e86d6ab1d8aa9916a3790c40313a55                                            0.0s
+ => CACHED [base 2/3] RUN corepack enable && corepack prepare pnpm@9 --activate                                                                                       0.0s
+ => CACHED [base 3/3] WORKDIR /app                                                                                                                                    0.0s
+ => CACHED [deps 1/9] COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./                                                                                         0.0s
+ => CACHED [deps 2/9] COPY lib/db/package.json lib/db/                                                                                                                0.0s
+ => CACHED [deps 3/9] COPY lib/api-spec/package.json lib/api-spec/                                                                                                    0.0s
+ => CACHED [deps 4/9] COPY lib/api-zod/package.json lib/api-zod/                                                                                                      0.0s
+ => CACHED [deps 5/9] COPY lib/api-client-react/package.json lib/api-client-react/                                                                                    0.0s
+ => CACHED [deps 6/9] COPY artifacts/api-server/package.json artifacts/api-server/                                                                                    0.0s
+ => CACHED [deps 7/9] COPY artifacts/proxmox-portal/package.json artifacts/proxmox-portal/                                                                            0.0s
+ => CACHED [deps 8/9] RUN pnpm install --no-frozen-lockfile --ignore-scripts                                                                                          0.0s
+ => CACHED [deps 9/9] RUN pnpm rebuild esbuild                                                                                                                        0.0s
+ => [build 1/2] COPY . .                                                                                                                                              0.3s
+ => [build 2/2] RUN pnpm --filter @workspace/proxmox-portal run build &&     pnpm --filter @workspace/api-server run build                                            6.4s
+ => CACHED [production  4/23] COPY --from=deps /app/node_modules ./node_modules                                                                                       0.0s
+ => CACHED [production  5/23] COPY --from=deps /app/package.json ./package.json                                                                                       0.0s
+ => CACHED [production  6/23] COPY --from=deps /app/pnpm-workspace.yaml ./pnpm-workspace.yaml                                                                         0.0s
+ => CACHED [production  7/23] COPY --from=deps /app/pnpm-lock.yaml ./pnpm-lock.yaml                                                                                   0.0s
+ => CACHED [production  8/23] COPY --from=deps /app/lib/db/node_modules ./lib/db/node_modules                                                                         0.0s
+ => CACHED [production  9/23] COPY --from=deps /app/lib/db/package.json ./lib/db/package.json                                                                         0.0s
+ => CACHED [production 10/23] COPY --from=deps /app/artifacts/api-server/node_modules ./artifacts/api-server/node_modules                                             0.0s
+ => CACHED [production 11/23] COPY --from=deps /app/artifacts/api-server/package.json ./artifacts/api-server/package.json                                             0.0s
+ => CACHED [production 12/23] COPY lib/api-spec/package.json ./lib/api-spec/package.json                                                                              0.0s
+ => CACHED [production 13/23] COPY lib/api-zod/package.json ./lib/api-zod/package.json                                                                                0.0s
+ => CACHED [production 14/23] COPY lib/api-client-react/package.json ./lib/api-client-react/package.json                                                              0.0s
+ => CACHED [production 15/23] COPY artifacts/proxmox-portal/package.json ./artifacts/proxmox-portal/package.json                                                      0.0s
+ => [production 16/23] COPY --from=build /app/artifacts/api-server/dist ./artifacts/api-server/dist                                                                   0.3s
+ => [production 17/23] COPY --from=build /app/artifacts/proxmox-portal/dist/public ./artifacts/proxmox-portal/dist/public                                             0.3s
+ => [production 18/23] COPY lib/db/src ./lib/db/src                                                                                                                   0.3s
+ => [production 19/23] COPY lib/db/tsconfig.json ./lib/db/                                                                                                            0.3s
+ => [production 20/23] COPY lib/db/drizzle.config.ts ./lib/db/                                                                                                        0.3s
+ => [production 21/23] COPY docker-entrypoint.sh /app/docker-entrypoint.sh                                                                                            0.3s
+ => [production 22/23] RUN chmod +x /app/docker-entrypoint.sh                                                                                                         0.6s
+ => [production 23/23] RUN addgroup --system proxhub && adduser --system --ingroup proxhub proxhub &&     chown -R proxhub:proxhub /app                             460.6s
+ => exporting to image                                                                                                                                                7.7s
+ => => exporting layers                                                                                                                                               7.6s
+ => => writing image sha256:ee0d395131bf2cb1265b5a977f5e746e94926d7bbcf9240c9e71f696861f1b2e                                                                          0.0s
+ => => naming to docker.io/library/proxmox-tenant-portal-app                                                                                                          0.0s
+ => resolving provenance for metadata file                                                                                                                            0.0s
+[+] up 3/4
+ ✔ Image proxmox-tenant-portal-app       Built                                                                                                                       478.9s
+ ✔ Network proxmox-tenant-portal_default Created                                                                                                                       0.1s
+ ⠼ Container proxmox-tenant-portal-db-1  Waiting                                                                                                                       2.7s
+ ✔ Container proxmox-tenant-portal-app-1 Created     
