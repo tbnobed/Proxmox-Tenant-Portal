@@ -6,7 +6,7 @@ import NotFound from "@/pages/not-found";
 import { AppLayout } from "@/components/layout/app-layout";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import LoginPage from "@/pages/login";
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import DashboardPage from "@/pages/dashboard";
 import ClustersPage from "@/pages/clusters";
 import ClusterDetailPage from "@/pages/cluster-detail";
@@ -20,6 +20,9 @@ import AccessPage from "@/pages/access";
 import VmConsolePage from "@/pages/vm-console";
 import CreateVmPage from "@/pages/create-vm";
 import NotificationsPage from "@/pages/notifications";
+import AcceptInvitePage from "@/pages/accept-invite";
+import ResetPasswordPage from "@/pages/reset-password";
+import ForgotPasswordPage from "@/pages/forgot-password";
 import { Loader2 } from "lucide-react";
 
 let authRefreshCallback: (() => void) | null = null;
@@ -89,6 +92,7 @@ function AppRouter() {
 
 function AuthGate() {
   const { user, loading, refresh, logout } = useAuth();
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   useEffect(() => {
     setAuthRefreshCallback(() => {
@@ -105,7 +109,23 @@ function AuthGate() {
   }
 
   if (!user) {
-    return <LoginPage onLogin={refresh} />;
+    return (
+      <Switch>
+        <Route path="/invite/:token">
+          <AcceptInvitePage onAccepted={refresh} />
+        </Route>
+        <Route path="/reset-password/:token">
+          <ResetPasswordPage />
+        </Route>
+        <Route>
+          {showForgotPassword ? (
+            <ForgotPasswordPage onBack={() => setShowForgotPassword(false)} />
+          ) : (
+            <LoginPage onLogin={refresh} onForgotPassword={() => setShowForgotPassword(true)} />
+          )}
+        </Route>
+      </Switch>
+    );
   }
 
   return <AppRouter />;

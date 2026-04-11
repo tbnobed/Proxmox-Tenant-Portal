@@ -23,6 +23,8 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 - **Dashboard**: Stats, running/stopped counts, recent activity feed, infrastructure health panel
 - **Health Monitoring**: Real-time health indicators across dashboard (infrastructure overview with expandable cluster/node details), clusters page (per-node health badge), and VMs page (health dot next to status). Health computed from CPU/RAM/disk thresholds. Utility: `lib/health.ts`
 - **Email Notifications (SendGrid)**: Sends email alerts to admin users on VM actions (start/stop/reboot), VM creation, user creation, access changes (grant/revoke), and health alerts. Daily health digest scheduler runs on configurable interval. Docker-portable: uses `SENDGRID_API_KEY` + `SENDGRID_FROM_EMAIL` env vars, falls back to Replit connector when available. Notification settings page at `/notifications` (admin only).
+- **User Invites**: Admin sends invite by email → user receives link → creates own username/password. 7-day token expiry. Invite dialog on Users page. DB table: `invite_tokens`.
+- **Password Reset**: "Forgot your password?" on login → enter email → receive reset link (1h expiry) → set new password. DB table: `password_reset_tokens`. Public routes, no auth required.
 
 ### Proxmox Integration Details
 - `proxmox-client.ts`: Handles auth (ticket API), node discovery, VM sync, VM actions, and VNC ticket generation
@@ -67,6 +69,8 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 - `tenant_vm_access` — Tenant-VM access grants
 - `user_vm_access` — User-VM access grants
 - `activity` — Audit/activity log
+- `invite_tokens` — Pending user invitations (token, email, role, tenant, expiry)
+- `password_reset_tokens` — Password reset requests (token, userId, expiry)
 
 ## API Routes (artifacts/api-server/src/routes/)
 - `/clusters` — CRUD + sync from Proxmox
@@ -82,6 +86,10 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 - `/notifications/status` — Email config status (admin only)
 - `/notifications/test` — Send test email (admin only)
 - `/notifications/digest` — Trigger health digest manually (admin only)
+- `/invites` — CRUD invite tokens (admin only)
+- `/auth/invite/:token` — Validate + accept invite (public)
+- `/auth/forgot-password` — Request password reset (public)
+- `/auth/reset-password/:token` — Validate + reset password (public)
 
 ## Frontend Pages (artifacts/proxmox-portal/src/pages/)
 - `dashboard.tsx` — Overview stats and activity
@@ -92,5 +100,8 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 - `vm-console.tsx` — VNC console page (embed or new tab)
 - `access.tsx` — Access control management
 - `notifications.tsx` — Email notification settings and testing (admin only)
+- `accept-invite.tsx` — Public invite acceptance page (set username/password)
+- `reset-password.tsx` — Public password reset page
+- `forgot-password.tsx` — Forgot password form (email entry)
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.

@@ -6,9 +6,10 @@ const logoImg = `${import.meta.env.BASE_URL}proxhub-logo.png`;
 
 interface LoginPageProps {
   onLogin: () => void;
+  onForgotPassword?: () => void;
 }
 
-export default function LoginPage({ onLogin }: LoginPageProps) {
+export default function LoginPage({ onLogin, onForgotPassword }: LoginPageProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -115,6 +116,18 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               "Sign In"
             )}
           </Button>
+
+          {onForgotPassword && (
+            <div className="text-center pt-1">
+              <button
+                type="button"
+                onClick={onForgotPassword}
+                className="text-xs text-muted-foreground hover:text-sand transition-colors"
+              >
+                Forgot your password?
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>

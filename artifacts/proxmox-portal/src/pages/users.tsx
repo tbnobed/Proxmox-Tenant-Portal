@@ -8,9 +8,9 @@ import {
   getListUsersQueryKey,
 } from "@workspace/api-client-react";
 import type { User, CreateUserBody, UpdateUserBody } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Plus, Pencil, Trash2, Users, Monitor } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Monitor, Mail, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -71,6 +71,36 @@ export default function UsersPage() {
   const [editUser, setEditUser] = useState<User | null>(null);
   const [deleteUser, setDeleteUser] = useState<User | null>(null);
   const [form, setForm] = useState<FormData>(defaultForm);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ email: "", role: "viewer", tenantId: "" });
+
+  const inviteMutation = useMutation({
+    mutationFn: async (data: { email: string; role: string; tenantId: number | null }) => {
+      const base = import.meta.env.BASE_URL || "/";
+      const res = await fetch(`${base}api/invites`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to send invite");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setInviteOpen(false);
+      setInviteForm({ email: "", role: "viewer", tenantId: "" });
+      toast({
+        title: "Invite sent",
+        description: data.emailSent ? `Invitation email sent to ${data.email}` : `Invite created for ${data.email} (email delivery pending)`,
+      });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
 
   function openCreate() {
     setForm(defaultForm);
@@ -191,9 +221,14 @@ export default function UsersPage() {
           <h1 className="text-xl font-semibold text-foreground">Users</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage portal users and their access</p>
         </div>
-        <Button onClick={openCreate} size="sm">
-          <Plus className="w-4 h-4 mr-1.5" /> New User
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setInviteOpen(true)} size="sm" variant="outline">
+            <Mail className="w-4 h-4 mr-1.5" /> Invite User
+          </Button>
+          <Button onClick={openCreate} size="sm">
+            <Plus className="w-4 h-4 mr-1.5" /> New User
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -282,6 +317,71 @@ export default function UsersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="w-5 h-5" /> Invite User
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Send an email invitation. The user will create their own username and password.
+            </p>
+            <div>
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={inviteForm.email}
+                onChange={e => setInviteForm(f => ({ ...f, email: e.target.value }))}
+                placeholder="user@example.com"
+                className="mt-1"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Role</Label>
+                <Select value={inviteForm.role} onValueChange={v => setInviteForm(f => ({ ...f, role: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="operator">Operator</SelectItem>
+                    <SelectItem value="viewer">Viewer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Tenant</Label>
+                <Select value={inviteForm.tenantId || "none"} onValueChange={v => setInviteForm(f => ({ ...f, tenantId: v === "none" ? "" : v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="No tenant" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No tenant</SelectItem>
+                    {tenants?.map(t => <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => inviteMutation.mutate({
+                email: inviteForm.email,
+                role: inviteForm.role,
+                tenantId: inviteForm.tenantId ? parseInt(inviteForm.tenantId, 10) : null,
+              })}
+              disabled={inviteMutation.isPending || !inviteForm.email}
+            >
+              {inviteMutation.isPending ? (
+                <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Sending...</>
+              ) : (
+                <><Mail className="w-4 h-4 mr-1.5" /> Send Invite</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
