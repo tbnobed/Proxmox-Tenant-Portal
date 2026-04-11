@@ -259,9 +259,9 @@ export default function TenantsPage() {
   );
 
   return (
-    <div className="p-6 md:p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-xl font-semibold text-foreground">Tenants</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage organizations with VM access</p>
         </div>
@@ -286,19 +286,34 @@ export default function TenantsPage() {
             const isExpanded = expandedTenants.has(t.id);
             return (
               <div key={t.id} className="rounded-lg border border-border bg-card p-4">
-                <div className="flex items-center gap-4">
+                <div className="flex items-start gap-3 sm:gap-4">
                   <div className="w-9 h-9 rounded-md bg-forest/40 flex items-center justify-center shrink-0">
                     <Building2 className="w-5 h-5 text-sand" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Link href={`/tenants/${t.id}`} className="font-medium text-foreground hover:text-primary transition-colors">
-                        {t.name}
-                      </Link>
-                      <StatusBadge status={t.status} />
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap min-w-0">
+                        <Link href={`/tenants/${t.id}`} className="font-medium text-foreground hover:text-primary transition-colors truncate">
+                          {t.name}
+                        </Link>
+                        <StatusBadge status={t.status} />
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Link href={`/tenants/${t.id}`}>
+                          <Button variant="outline" size="sm" className="text-xs gap-1.5">
+                            <Settings2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Quotas & Access</span>
+                          </Button>
+                        </Link>
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(t)}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setDeleteTenant(t)}>
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-4 mt-1">
-                      {t.contactEmail && <p className="text-xs text-muted-foreground">{t.contactEmail}</p>}
+                    <div className="flex items-center gap-3 sm:gap-4 mt-1 flex-wrap">
+                      {t.contactEmail && <p className="text-xs text-muted-foreground truncate">{t.contactEmail}</p>}
                       <button
                         onClick={() => toggleExpand(t.id)}
                         className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors"
@@ -310,19 +325,6 @@ export default function TenantsPage() {
                         <Monitor className="w-3 h-3" /> {t.vmCount} VMs
                       </span>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Link href={`/tenants/${t.id}`}>
-                      <Button variant="outline" size="sm" className="text-xs gap-1.5">
-                        <Settings2 className="w-3.5 h-3.5" /> Quotas & Access
-                      </Button>
-                    </Link>
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(t)}>
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setDeleteTenant(t)}>
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
                   </div>
                 </div>
                 {isExpanded && <TenantUsers tenantId={t.id} />}

@@ -113,7 +113,7 @@ function NodeStatusCard({ node }: { node: NodeStatus }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-xs">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-xs">
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground flex items-center gap-1.5">
             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/><line x1="9" y1="15" x2="9.01" y2="15"/><line x1="15" y1="15" x2="15.01" y2="15"/></svg>
@@ -380,8 +380,8 @@ export default function ClustersPage() {
 
   const ClusterForm = (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="sm:col-span-2">
           <Label htmlFor="name">Name</Label>
           <Input id="name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Production Cluster" className="mt-1" />
         </div>
@@ -401,7 +401,7 @@ export default function ClustersPage() {
           <Label htmlFor="realm">Realm</Label>
           <Input id="realm" value={form.realm} onChange={e => setForm(f => ({ ...f, realm: e.target.value }))} placeholder="pam" className="mt-1" />
         </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <Label htmlFor="password">Password {editCluster && <span className="text-muted-foreground text-xs">(leave blank to keep current)</span>}</Label>
           <Input id="password" type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" className="mt-1" />
         </div>
@@ -410,9 +410,9 @@ export default function ClustersPage() {
   );
 
   return (
-    <div className="p-6 md:p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-xl font-semibold text-foreground">Clusters</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage your Proxmox cluster connections</p>
         </div>
@@ -438,68 +438,71 @@ export default function ClustersPage() {
             const isExpanded = expandedClusters.has(c.id);
             return (
               <div key={c.id} className="rounded-lg border border-border bg-card overflow-hidden">
-                <div className="flex items-center gap-4 px-5 py-4">
-                  <div className="w-10 h-10 rounded-lg bg-forest/40 flex items-center justify-center shrink-0">
-                    <Server className="w-5 h-5 text-sand" />
+                <div className="flex items-start gap-3 px-3 sm:px-5 py-3 sm:py-4">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-forest/40 flex items-center justify-center shrink-0">
+                    <Server className="w-4 h-4 sm:w-5 sm:h-5 text-sand" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Link href={`/clusters/${c.id}`} className="font-semibold text-foreground hover:text-sand transition-colors">
-                        {c.name}
-                      </Link>
-                      <StatusBadge status={c.status} />
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Link href={`/clusters/${c.id}`} className="font-semibold text-foreground hover:text-sand transition-colors truncate text-sm sm:text-base">
+                          {c.name}
+                        </Link>
+                        <StatusBadge status={c.status} />
+                      </div>
+                      <div className="flex items-center shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 sm:h-8 sm:w-8"
+                          onClick={() => toggleExpand(c.id)}
+                          title="Node details"
+                        >
+                          {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 sm:h-8 sm:w-8"
+                          onClick={() => handleSync(c.id)}
+                          disabled={syncingId === c.id}
+                          title="Sync VMs"
+                        >
+                          <RefreshCw className={cn("w-3.5 h-3.5", syncingId === c.id && "animate-spin")} />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8" onClick={() => openEdit(c)} title="Edit">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8" onClick={() => setDeleteCluster(c)} title="Delete">
+                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
                       {c.host}:{c.port} &mdash; {c.username}@{c.realm}
                     </p>
                   </div>
+                </div>
 
-                  <div className="flex items-center gap-3 mr-2 text-xs shrink-0">
-                    <div className="text-center px-2">
-                      <p className="text-lg font-bold text-foreground leading-none">{stats?.total ?? c.vmCount}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">VMs</p>
-                    </div>
-                    <div className="text-center px-2 border-l border-border/40">
-                      <p className="text-lg font-bold text-olive leading-none">{stats?.running ?? 0}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Running</p>
-                    </div>
-                    <div className="text-center px-2 border-l border-border/40">
-                      <p className="text-lg font-bold text-red-400 leading-none">{stats?.stopped ?? 0}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Stopped</p>
-                    </div>
-                    {(stats?.paused ?? 0) > 0 && (
-                      <div className="text-center px-2 border-l border-border/40">
-                        <p className="text-lg font-bold text-yellow-400 leading-none">{stats?.paused ?? 0}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">Paused</p>
-                      </div>
-                    )}
+                <div className="hidden sm:flex items-center gap-3 px-5 pb-4 text-xs">
+                  <div className="text-center px-2">
+                    <p className="text-lg font-bold text-foreground leading-none">{stats?.total ?? c.vmCount}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">VMs</p>
                   </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleExpand(c.id)}
-                      title="Node details"
-                    >
-                      {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleSync(c.id)}
-                      disabled={syncingId === c.id}
-                      title="Sync VMs"
-                    >
-                      <RefreshCw className={cn("w-4 h-4", syncingId === c.id && "animate-spin")} />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(c)} title="Edit">
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setDeleteCluster(c)} title="Delete">
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
+                  <div className="text-center px-2 border-l border-border/40">
+                    <p className="text-lg font-bold text-olive leading-none">{stats?.running ?? 0}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Running</p>
                   </div>
+                  <div className="text-center px-2 border-l border-border/40">
+                    <p className="text-lg font-bold text-red-400 leading-none">{stats?.stopped ?? 0}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Stopped</p>
+                  </div>
+                  {(stats?.paused ?? 0) > 0 && (
+                    <div className="text-center px-2 border-l border-border/40">
+                      <p className="text-lg font-bold text-yellow-400 leading-none">{stats?.paused ?? 0}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Paused</p>
+                    </div>
+                  )}
                 </div>
 
                 {isExpanded && (

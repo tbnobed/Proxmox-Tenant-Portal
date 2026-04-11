@@ -179,9 +179,9 @@ function InfraHealthPanel({ clusters }: { clusters: ClusterHealthData[] }) {
 
   return (
     <div className="rounded-lg border border-border bg-card overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
+      <div className="flex items-center gap-3 px-4 md:px-5 py-3 md:py-4 border-b border-border flex-wrap">
         <HeartPulse className="w-5 h-5 text-emerald-400" />
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <h2 className="text-sm font-semibold text-foreground">Infrastructure Health</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             {totalNodes} node{totalNodes !== 1 ? "s" : ""} across {clusters.length} cluster{clusters.length !== 1 ? "s" : ""} — {runningVms}/{totalVms} VMs running
@@ -212,7 +212,7 @@ function InfraHealthPanel({ clusters }: { clusters: ClusterHealthData[] }) {
                     {cluster.nodes.length} node{cluster.nodes.length !== 1 ? "s" : ""}
                   </span>
                 </div>
-                <div className="flex items-center gap-4 text-xs shrink-0">
+                <div className="hidden sm:flex items-center gap-4 text-xs shrink-0">
                   <span className="text-muted-foreground">
                     <span className="text-emerald-400 font-medium">{cluster.vms.running}</span> running
                   </span>
@@ -277,7 +277,7 @@ export default function DashboardPage() {
   const { data: healthData, loading: healthLoading } = useInfraHealth(isAdmin);
 
   return (
-    <div className="p-6 md:p-8 space-y-8">
+    <div className="space-y-6 md:space-y-8">
       <div>
         <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
         <p className="text-sm text-muted-foreground mt-1">Overview of your {isAdmin ? "Proxmox infrastructure" : "assigned virtual machines"}</p>

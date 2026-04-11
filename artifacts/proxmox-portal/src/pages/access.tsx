@@ -206,7 +206,7 @@ export default function AccessPage() {
   const totalUserGrants = userAccess?.length ?? 0;
 
   return (
-    <div className="p-6 md:p-8 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-olive/20 flex items-center justify-center">

@@ -172,7 +172,7 @@ export default function UsersPage() {
 
   const UserForm = (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <Label>Username</Label>
           <Input value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} placeholder="jdoe" className="mt-1" />
@@ -181,7 +181,7 @@ export default function UsersPage() {
           <Label>Full Name</Label>
           <Input value={form.fullName} onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} placeholder="John Doe" className="mt-1" />
         </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <Label>Email</Label>
           <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="john@example.com" className="mt-1" />
         </div>
@@ -206,7 +206,7 @@ export default function UsersPage() {
             </SelectContent>
           </Select>
         </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <Label>Password {editUser && <span className="text-muted-foreground text-xs">(leave blank to keep current)</span>}</Label>
           <Input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" className="mt-1" />
         </div>
@@ -215,18 +215,18 @@ export default function UsersPage() {
   );
 
   return (
-    <div className="p-6 md:p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
           <h1 className="text-xl font-semibold text-foreground">Users</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage portal users and their access</p>
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={() => setInviteOpen(true)} size="sm" variant="outline">
-            <Mail className="w-4 h-4 mr-1.5" /> Invite User
+            <Mail className="w-4 h-4 sm:mr-1.5" /> <span className="hidden sm:inline">Invite User</span>
           </Button>
           <Button onClick={openCreate} size="sm">
-            <Plus className="w-4 h-4 mr-1.5" /> New User
+            <Plus className="w-4 h-4 sm:mr-1.5" /> <span className="hidden sm:inline">New User</span>
           </Button>
         </div>
       </div>
@@ -244,33 +244,35 @@ export default function UsersPage() {
       ) : (
         <div className="space-y-3">
           {users?.map(u => (
-            <div key={u.id} className="rounded-lg border border-border bg-card p-4 flex items-center gap-4">
-              <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-primary font-semibold text-sm">
+            <div key={u.id} className="rounded-lg border border-border bg-card p-3 sm:p-4 flex items-start gap-3">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-primary font-semibold text-sm">
                 {(u.fullName ?? u.username).charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Link href={`/users/${u.id}`} className="font-medium text-foreground hover:text-primary transition-colors">
-                    {u.fullName ?? u.username}
-                  </Link>
-                  <RoleBadge role={u.role} />
-                  <StatusBadge status={u.status} />
+                <div className="flex items-center justify-between gap-1">
+                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                    <Link href={`/users/${u.id}`} className="font-medium text-foreground hover:text-primary transition-colors truncate">
+                      {u.fullName ?? u.username}
+                    </Link>
+                    <RoleBadge role={u.role} />
+                    <StatusBadge status={u.status} />
+                  </div>
+                  <div className="flex items-center shrink-0">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(u)}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeleteUser(u)}>
+                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 mt-1">
-                  <p className="text-xs text-muted-foreground">{u.email}</p>
+                <div className="flex items-center gap-3 mt-1 flex-wrap">
+                  <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                   {u.tenantName && <span className="text-xs text-muted-foreground">{u.tenantName}</span>}
                   <span className="text-xs text-muted-foreground flex items-center gap-1">
                     <Monitor className="w-3 h-3" /> {u.vmCount} VMs
                   </span>
                 </div>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <Button variant="ghost" size="sm" onClick={() => openEdit(u)}>
-                  <Pencil className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setDeleteUser(u)}>
-                  <Trash2 className="w-4 h-4 text-destructive" />
-                </Button>
               </div>
             </div>
           ))}

@@ -260,7 +260,7 @@ export default function CreateVmPage() {
 
   if (!isAdmin && !user?.tenantId) {
     return (
-      <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => setLocation("/vms")}>
             <ArrowLeft className="w-4 h-4" />
@@ -280,7 +280,7 @@ export default function CreateVmPage() {
   }
 
   return (
-    <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => setLocation("/vms")}>
           <ArrowLeft className="w-4 h-4" />

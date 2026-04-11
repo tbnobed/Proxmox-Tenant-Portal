@@ -51,7 +51,7 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
-- **Frontend**: React + Vite + TailwindCSS v4, light/dark mode toggle (persists to localStorage)
+- **Frontend**: React + Vite + TailwindCSS v4, light/dark mode toggle (persists to localStorage), fully mobile-responsive (hamburger menu, slide-out sidebar, overflow-safe layouts)
 - **Color palette**: `#53561F` (olive), `#182D0C` (forest), `#E6CAA7` (sand), `#1C1B31` (navy) — defined as Tailwind tokens `olive`, `forest`, `sand`, `navy` in index.css. Dark mode: pure black background. Light mode: warm off-white. Sidebar stays dark forest green in both modes. Theme toggle in header bar (sun/moon icon). Provider: `ThemeProvider` in `hooks/use-theme.tsx`.
 - **Routing**: wouter
 - **WebSocket**: ws (for VNC proxy)
