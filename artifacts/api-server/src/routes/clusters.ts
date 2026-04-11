@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, sql, and } from "drizzle-orm";
 import { db, clustersTable, vmsTable } from "@workspace/db";
-import { syncFromProxmox } from "../proxmox-client";
+import { syncFromProxmox, getNodeStatuses } from "../proxmox-client";
 import {
   CreateClusterBody,
   GetClusterParams,
@@ -121,6 +121,34 @@ router.delete("/clusters/:id", async (req, res): Promise<void> => {
     return;
   }
   res.sendStatus(204);
+});
+
+router.get("/clusters/:id/nodes", async (req, res): Promise<void> => {
+  const params = GetClusterParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [cluster] = await db.select().from(clustersTable).where(eq(clustersTable.id, params.data.id));
+  if (!cluster) {
+    res.status(404).json({ error: "Cluster not found" });
+    return;
+  }
+
+  try {
+    const nodeStatuses = await getNodeStatuses(
+      cluster.host,
+      cluster.port,
+      cluster.username,
+      cluster.passwordHash,
+      cluster.realm
+    );
+    res.json(nodeStatuses);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("Failed to fetch node statuses for cluster", cluster.id, ":", message);
+    res.status(502).json({ error: `Failed to connect to Proxmox: ${message}` });
+  }
 });
 
 router.post("/clusters/:id/sync", async (req, res): Promise<void> => {

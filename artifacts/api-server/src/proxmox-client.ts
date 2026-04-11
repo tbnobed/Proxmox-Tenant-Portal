@@ -232,6 +232,85 @@ export async function getVncTicket(
   return { ...result, auth };
 }
 
+export interface NodeStatus {
+  node: string;
+  status: string;
+  cpuUsage: number;
+  cpuCount: number;
+  cpuModel: string;
+  loadAverage: string;
+  memUsed: number;
+  memTotal: number;
+  swapUsed: number;
+  swapTotal: number;
+  rootFsUsed: number;
+  rootFsTotal: number;
+  ioDelay: number;
+  ksmSharing: number;
+  kernelVersion: string;
+  pveVersion: string;
+  bootMode: string;
+  uptime: number;
+}
+
+export async function getNodeStatuses(
+  host: string,
+  port: number,
+  username: string,
+  password: string,
+  realm: string
+): Promise<NodeStatus[]> {
+  const auth = await authenticate(host, port, username, password, realm);
+  const nodes = await apiGet<ProxmoxNode[]>(host, port, "/api2/json/nodes", auth);
+  const results: NodeStatus[] = [];
+
+  for (const node of nodes) {
+    try {
+      const status = await apiGet<any>(host, port, `/api2/json/nodes/${node.node}/status`, auth);
+      const cpuinfo = status.cpuinfo ?? {};
+      const memory = status.memory ?? {};
+      const swap = status.swap ?? {};
+      const rootfs = status.rootfs ?? {};
+      const loadavg = status.loadavg ?? [0, 0, 0];
+      const ksm = status.ksm ?? {};
+      const bootInfo = status["boot-info"] ?? {};
+
+      results.push({
+        node: node.node,
+        status: node.status ?? "unknown",
+        cpuUsage: typeof status.cpu === "number" ? status.cpu : 0,
+        cpuCount: cpuinfo.cpus ?? cpuinfo.cores ?? node.maxcpu ?? 0,
+        cpuModel: cpuinfo.model ?? "",
+        loadAverage: Array.isArray(loadavg) ? loadavg.join(", ") : String(loadavg),
+        memUsed: memory.used ?? 0,
+        memTotal: memory.total ?? 0,
+        swapUsed: swap.used ?? 0,
+        swapTotal: swap.total ?? 0,
+        rootFsUsed: rootfs.used ?? 0,
+        rootFsTotal: rootfs.total ?? 0,
+        ioDelay: typeof status.wait === "number" ? status.wait : 0,
+        ksmSharing: ksm.shared ?? 0,
+        kernelVersion: status.kversion ?? "",
+        pveVersion: status.pveversion ?? "",
+        bootMode: bootInfo.mode ?? "",
+        uptime: status.uptime ?? 0,
+      });
+    } catch (e) {
+      console.error(`Failed to fetch status for node ${node.node}:`, e);
+      results.push({
+        node: node.node,
+        status: "error",
+        cpuUsage: 0, cpuCount: 0, cpuModel: "", loadAverage: "",
+        memUsed: 0, memTotal: 0, swapUsed: 0, swapTotal: 0,
+        rootFsUsed: 0, rootFsTotal: 0, ioDelay: 0, ksmSharing: 0,
+        kernelVersion: "", pveVersion: "", bootMode: "", uptime: 0,
+      });
+    }
+  }
+
+  return results;
+}
+
 export async function syncFromProxmox(
   host: string,
   port: number,
