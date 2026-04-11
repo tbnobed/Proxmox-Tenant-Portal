@@ -47,7 +47,7 @@ export default function AccessPage() {
   const { data: userAccess, isLoading: loadingUA } = useListUserVmAccess();
   const { data: tenants } = useListTenants();
   const { data: users } = useListUsers();
-  const { data: vms } = useListVms({});
+  const { data: vms } = useListVms();
   const grantTenantMutation = useGrantTenantVmAccess();
   const revokeTenantMutation = useRevokeTenantVmAccess();
   const grantUserMutation = useGrantUserVmAccess();

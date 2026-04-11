@@ -28,7 +28,7 @@ export default function ClusterDetailPage() {
   const params = useParams<{ id: string }>();
   const id = parseInt(params.id, 10);
   const { data: cluster, isLoading: loadingCluster } = useGetCluster(id, { query: { enabled: !!id } });
-  const { data: vms, isLoading: loadingVms } = useListVms({ params: { clusterId: id } });
+  const { data: vms, isLoading: loadingVms } = useListVms({ clusterId: id });
   const syncMutation = useSyncCluster();
   const qc = useQueryClient();
   const { toast } = useToast();

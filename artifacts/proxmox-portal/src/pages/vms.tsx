@@ -44,7 +44,7 @@ export default function VmsPage() {
   if (tenantFilter !== "all") params.tenantId = parseInt(tenantFilter, 10);
   if (statusFilter !== "all") params.status = statusFilter;
 
-  const { data: vms, isLoading } = useListVms({ params });
+  const { data: vms, isLoading } = useListVms(params);
   const { data: clusters } = useListClusters();
   const { data: tenants } = useListTenants();
   const qc = useQueryClient();

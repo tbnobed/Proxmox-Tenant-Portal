@@ -30,7 +30,7 @@ export default function TenantDetailPage() {
   const { data: summary } = useGetTenantSummary(id, { query: { enabled: !!id } });
   const { data: allUsers } = useListUsers();
   const { data: tenantVmAccess } = useListTenantVmAccess();
-  const { data: vms } = useListVms({});
+  const { data: vms } = useListVms();
 
   const tenantUsers = allUsers?.filter(u => u.tenantId === id) ?? [];
   const accessGrants = tenantVmAccess?.filter(a => a.tenantId === id) ?? [];
