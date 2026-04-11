@@ -1,6 +1,7 @@
+import { useMemo } from "react";
 import { useParams, Link } from "wouter";
 import { useGetTenant, useGetTenantSummary, useListUsers, useListTenantVmAccess, useListVms } from "@workspace/api-client-react";
-import { ArrowLeft, Users, Monitor } from "lucide-react";
+import { ArrowLeft, Users, Monitor, ShieldCheck, Building2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -29,11 +30,26 @@ export default function TenantDetailPage() {
   const { data: summary } = useGetTenantSummary(id, { query: { enabled: !!id } });
   const { data: allUsers } = useListUsers();
   const { data: tenantVmAccess } = useListTenantVmAccess();
-  const { data: vms } = useListVms({ params: { tenantId: id } });
+  const { data: vms } = useListVms({});
 
   const tenantUsers = allUsers?.filter(u => u.tenantId === id) ?? [];
   const accessGrants = tenantVmAccess?.filter(a => a.tenantId === id) ?? [];
-  void accessGrants;
+
+  const accessedVms = useMemo(() => {
+    if (!accessGrants.length || !vms) return [];
+    const grantedVmIds = new Set(accessGrants.map(a => a.vmId));
+    return vms.filter(v => grantedVmIds.has(v.id));
+  }, [accessGrants, vms]);
+
+  const ownedVms = useMemo(() => {
+    if (!vms) return [];
+    return vms.filter(v => v.tenantId === id);
+  }, [vms, id]);
+
+  const accessOnlyVms = useMemo(() => {
+    const ownedIds = new Set(ownedVms.map(v => v.id));
+    return accessedVms.filter(v => !ownedIds.has(v.id));
+  }, [accessedVms, ownedVms]);
 
   return (
     <div className="p-6 md:p-8 space-y-6">
@@ -44,18 +60,30 @@ export default function TenantDetailPage() {
         {isLoading ? (
           <Skeleton className="h-7 w-48" />
         ) : (
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">{tenant?.name}</h1>
-            {tenant?.description && <p className="text-sm text-muted-foreground mt-0.5">{tenant.description}</p>}
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-md bg-forest/40 flex items-center justify-center shrink-0">
+              <Building2 className="w-5 h-5 text-sand" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-semibold text-foreground">{tenant?.name}</h1>
+                {tenant?.status && <StatusBadge status={tenant.status} />}
+              </div>
+              {tenant?.description && <p className="text-sm text-muted-foreground mt-0.5">{tenant.description}</p>}
+              {tenant?.contactEmail && <p className="text-xs text-muted-foreground mt-0.5">{tenant.contactEmail}</p>}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground">Total VMs</p>
-          <p className="text-2xl font-bold text-foreground mt-1">{summary?.totalVms ?? "—"}</p>
+          <p className="text-xs text-muted-foreground">Owned VMs</p>
+          <p className="text-2xl font-bold text-foreground mt-1">{summary?.totalVms ?? ownedVms.length}</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground">VM Access Grants</p>
+          <p className="text-2xl font-bold text-sand mt-1">{accessGrants.length}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-xs text-muted-foreground">Running</p>
@@ -67,15 +95,14 @@ export default function TenantDetailPage() {
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-xs text-muted-foreground">Users</p>
-          <p className="text-2xl font-bold text-foreground mt-1">{summary?.totalUsers ?? "—"}</p>
+          <p className="text-2xl font-bold text-foreground mt-1">{summary?.totalUsers ?? tenantUsers.length}</p>
         </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Users */}
         <div className="rounded-lg border border-border bg-card">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-            <Users className="w-4 h-4 text-primary" />
+            <Users className="w-4 h-4 text-sand" />
             <h2 className="text-sm font-semibold text-foreground">Users</h2>
             <span className="text-xs text-muted-foreground ml-auto">{tenantUsers.length}</span>
           </div>
@@ -96,28 +123,70 @@ export default function TenantDetailPage() {
           )}
         </div>
 
-        {/* VMs */}
-        <div className="rounded-lg border border-border bg-card">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-            <Monitor className="w-4 h-4 text-primary" />
-            <h2 className="text-sm font-semibold text-foreground">Assigned VMs</h2>
-            <span className="text-xs text-muted-foreground ml-auto">{vms?.length ?? 0}</span>
-          </div>
-          {!vms || vms.length === 0 ? (
-            <p className="text-sm text-muted-foreground p-4 text-center">No VMs assigned to this tenant</p>
-          ) : (
-            <div className="divide-y divide-border">
-              {vms.map(vm => (
-                <Link key={vm.id} href={`/vms/${vm.id}`} className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 transition-colors">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{vm.name}</p>
-                    <p className="text-xs text-muted-foreground">{vm.clusterName} — Node: {vm.node}</p>
-                  </div>
-                  <StatusBadge status={vm.status} />
-                </Link>
-              ))}
+        <div className="space-y-4">
+          <div className="rounded-lg border border-border bg-card">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+              <Monitor className="w-4 h-4 text-sand" />
+              <h2 className="text-sm font-semibold text-foreground">Owned VMs</h2>
+              <span className="text-xs text-muted-foreground ml-auto">{ownedVms.length}</span>
             </div>
-          )}
+            {ownedVms.length === 0 ? (
+              <p className="text-sm text-muted-foreground p-4 text-center">No VMs owned by this tenant</p>
+            ) : (
+              <div className="divide-y divide-border">
+                {ownedVms.map(vm => (
+                  <Link key={vm.id} href={`/vms/${vm.id}`} className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 transition-colors">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{vm.name}</p>
+                      <p className="text-xs text-muted-foreground">{vm.clusterName} — Node: {vm.node}</p>
+                    </div>
+                    <StatusBadge status={vm.status} />
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-border bg-card">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+              <ShieldCheck className="w-4 h-4 text-sand" />
+              <h2 className="text-sm font-semibold text-foreground">VM Access Grants</h2>
+              <span className="text-xs text-muted-foreground ml-auto">{accessGrants.length}</span>
+            </div>
+            {accessGrants.length === 0 ? (
+              <div className="p-4 text-center">
+                <p className="text-sm text-muted-foreground">No VM access grants</p>
+                <Link href="/access" className="text-xs text-sand hover:underline mt-1 inline-block">Manage access</Link>
+              </div>
+            ) : (
+              <>
+                <div className="divide-y divide-border">
+                  {accessGrants.map(grant => {
+                    const vm = accessedVms.find(v => v.id === grant.vmId);
+                    return (
+                      <Link key={grant.id} href={vm ? `/vms/${vm.id}` : "#"} className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 transition-colors">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Monitor className="w-3.5 h-3.5 text-sand/60 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{grant.vmName}</p>
+                            {vm && <p className="text-xs text-muted-foreground">{vm.clusterName} — Node: {vm.node}</p>}
+                          </div>
+                        </div>
+                        {vm ? (
+                          <StatusBadge status={vm.status} />
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 rounded border bg-olive/10 text-sand/80 border-olive/20">granted</span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+                <div className="px-4 py-2 border-t border-border">
+                  <Link href="/access" className="text-xs text-sand hover:underline">Manage access grants</Link>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
