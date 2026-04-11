@@ -12,7 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
-import logoImg from "@assets/ProxHub2_1775891124848.png";
+const logoImg = `${import.meta.env.BASE_URL}proxhub-logo.png`;
 
 interface AppLayoutProps {
   children: React.ReactNode;

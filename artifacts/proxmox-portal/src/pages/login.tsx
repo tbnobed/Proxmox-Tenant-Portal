@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import logoImg from "@assets/ProxHub2_1775891124848.png";
+const logoImg = `${import.meta.env.BASE_URL}proxhub-logo.png`;
 
 interface LoginPageProps {
   onLogin: () => void;
@@ -48,7 +48,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-3">
-            <img src={logoImg} alt="ProxHub" className="h-14 w-auto" />
+            <img src={logoImg} alt="ProxHub" className="h-14 w-auto rounded-lg" />
           </div>
           <p className="text-sm text-muted-foreground mt-1">Sign in to manage your infrastructure</p>
         </div>
