@@ -106,6 +106,7 @@
     const vncPassword = params.get("password") || "";
     const vmId = params.get("vmId");
     const embed = params.get("embed") === "1";
+    const initialStatus = params.get("status") || "";
 
     document.getElementById("vmTitle").textContent = vmName + " Console";
     document.title = vmName + " - Console";
@@ -113,8 +114,6 @@
     if (embed) {
       document.getElementById("vmControls").style.display = "none";
     }
-
-    let currentVmStatus = null;
 
     function showError(msg) {
       document.getElementById("loading").style.display = "none";
@@ -128,8 +127,7 @@
     }
 
     function updateVmStatus(status) {
-      if (embed) return;
-      currentVmStatus = status;
+      if (embed || !status) return;
       const dotEl = document.getElementById("vmStatusDot");
       const textEl = document.getElementById("vmStatusText");
       const btnStart = document.getElementById("btnStart");
@@ -154,65 +152,47 @@
       }
     }
 
-    function getApiBase() {
-      const path = window.location.pathname;
-      const idx = path.indexOf("/vnc.html");
-      if (idx > 0) {
-        const prefix = path.substring(0, idx);
-        return prefix + "/api";
-      }
-      return "/api";
+    if (initialStatus && !embed) {
+      updateVmStatus(initialStatus);
     }
 
-    const apiBase = getApiBase();
-
-    async function fetchVmStatus() {
-      if (!vmId || embed) return;
-      try {
-        const res = await fetch(`${apiBase}/vms/${vmId}`, { credentials: "include" });
-        if (res.ok) {
-          const vm = await res.json();
-          updateVmStatus(vm.status);
+    window.addEventListener("message", function(e) {
+      if (!e.data) return;
+      if (e.data.type === "vm-status") {
+        updateVmStatus(e.data.status);
+      }
+      if (e.data.type === "vm-action-result") {
+        const btnMap = { start: "btnStart", stop: "btnStop", reboot: "btnReboot" };
+        const btn = document.getElementById(btnMap[e.data.action]);
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = e.data.action === "start" ? "&#9654; Start" : e.data.action === "stop" ? "&#9632; Stop" : "&#8635; Reboot";
         }
-      } catch (e) {
-        console.warn("Failed to fetch VM status:", e);
+        if (!e.data.success) {
+          alert("Action failed: " + e.data.message);
+        }
       }
-    }
+    });
 
-    window.vmAction = async function(action) {
+    window.vmAction = function(action) {
       if (!vmId) return;
       const btnMap = { start: "btnStart", stop: "btnStop", reboot: "btnReboot" };
       const btn = document.getElementById(btnMap[action]);
-      if (btn) { btn.disabled = true; btn.textContent = action === "start" ? "Starting..." : action === "stop" ? "Stopping..." : "Rebooting..."; }
-
-      try {
-        const res = await fetch(`${apiBase}/vms/${vmId}/action`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action })
-        });
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error || `HTTP ${res.status}`);
-        }
-      } catch (err) {
-        alert("Action failed: " + err.message);
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = action === "start" ? "Starting..." : action === "stop" ? "Stopping..." : "Rebooting...";
       }
 
-      setTimeout(fetchVmStatus, 2000);
-      setTimeout(fetchVmStatus, 5000);
-
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = action === "start" ? "&#9654; Start" : action === "stop" ? "&#9632; Stop" : "&#8635; Reboot";
+      if (window.opener) {
+        window.opener.postMessage({ type: "vm-action-request", action: action, vmId: vmId }, "*");
+      } else {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = action === "start" ? "&#9654; Start" : action === "stop" ? "&#9632; Stop" : "&#8635; Reboot";
+        }
+        alert("Cannot perform action: no connection to parent window. Please use the controls in the main portal.");
       }
     };
-
-    if (vmId && !embed) {
-      fetchVmStatus();
-      setInterval(fetchVmStatus, 5000);
-    }
 
     if (!token) {
       showError("No console token provided. Please launch the console from the portal.");

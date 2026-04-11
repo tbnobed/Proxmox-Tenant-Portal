@@ -1,9 +1,9 @@
 import { useParams, Link } from "wouter";
 import { useGetVm, useVmConsole, useVmAction, getGetVmQueryKey, getListVmsQueryKey } from "@workspace/api-client-react";
-import { ArrowLeft, Monitor, Loader2, AlertCircle, ExternalLink, Play, Square, RotateCcw, Power } from "lucide-react";
+import { ArrowLeft, Monitor, Loader2, AlertCircle, ExternalLink, Play, Square, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +25,41 @@ export default function VmConsolePage() {
   const [error, setError] = useState<string | null>(null);
   const [iframeUrl, setIframeUrl] = useState<string | null>(null);
   const [actioning, setActioning] = useState<string | null>(null);
+  const popupRef = useRef<Window | null>(null);
+
+  useEffect(() => {
+    if (!vm || !popupRef.current || popupRef.current.closed) return;
+    try {
+      popupRef.current.postMessage({ type: "vm-status", status: vm.status }, "*");
+    } catch {}
+  }, [vm?.status]);
+
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      if (!e.data || e.data.type !== "vm-action-request") return;
+      const action = e.data.action;
+      if (!["start", "stop", "reboot"].includes(action)) return;
+
+      actionMutation.mutate({ id, data: { action } }, {
+        onSuccess: (result) => {
+          qc.invalidateQueries({ queryKey: getGetVmQueryKey(id) });
+          qc.invalidateQueries({ queryKey: getListVmsQueryKey() });
+          toast({ title: result.message });
+          if (popupRef.current && !popupRef.current.closed) {
+            popupRef.current.postMessage({ type: "vm-action-result", action, success: true, message: result.message }, "*");
+          }
+        },
+        onError: () => {
+          toast({ title: "Action failed", description: `Failed to ${action} VM`, variant: "destructive" });
+          if (popupRef.current && !popupRef.current.closed) {
+            popupRef.current.postMessage({ type: "vm-action-result", action, success: false, message: `Failed to ${action} VM` }, "*");
+          }
+        },
+      });
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [id, actionMutation, qc, toast]);
 
   function handleAction(action: string) {
     setActioning(action);
@@ -53,13 +88,28 @@ export default function VmConsolePage() {
       const base = import.meta.env.BASE_URL || "/";
       const vncTicket = (result as any).vncTicket || "";
       const cacheBust = `_t=${Date.now()}`;
-      const baseParams = `token=${result.token}&name=${encodeURIComponent(result.vmName)}&password=${encodeURIComponent(vncTicket)}&vmId=${id}&${cacheBust}`;
+      const baseParams = `token=${result.token}&name=${encodeURIComponent(result.vmName)}&password=${encodeURIComponent(vncTicket)}&vmId=${id}&status=${encodeURIComponent(vm.status)}&${cacheBust}`;
       const embedUrl = `${base}vnc.html?${baseParams}&embed=1`;
       const popupUrl = `${base}vnc.html?${baseParams}`;
       const url = mode === "embed" ? embedUrl : popupUrl;
 
       if (mode === "tab") {
-        window.open(url, `vnc-${id}`, "noopener");
+        const popup = window.open(url, `vnc-${id}`);
+        if (popup) {
+          popupRef.current = popup;
+          const statusInterval = setInterval(() => {
+            if (popup.closed) {
+              clearInterval(statusInterval);
+              popupRef.current = null;
+              return;
+            }
+            if (vm) {
+              try {
+                popup.postMessage({ type: "vm-status", status: vm.status }, "*");
+              } catch {}
+            }
+          }, 3000);
+        }
       } else {
         setIframeUrl(url);
       }
