@@ -18,13 +18,23 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-INSTALL_DIR="/opt/proxhub"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_DIR="$SCRIPT_DIR"
 
-echo -e "${YELLOW}[1/6] Updating system packages...${NC}"
+if [ ! -f "$INSTALL_DIR/docker-compose.yml" ]; then
+  echo -e "${RED}docker-compose.yml not found in $INSTALL_DIR${NC}"
+  echo "Please run this script from the ProxHub source directory."
+  exit 1
+fi
+
+echo -e "Install directory: ${GREEN}$INSTALL_DIR${NC}"
+echo ""
+
+echo -e "${YELLOW}[1/5] Updating system packages...${NC}"
 apt-get update -qq
 apt-get upgrade -y -qq
 
-echo -e "${YELLOW}[2/6] Installing Docker...${NC}"
+echo -e "${YELLOW}[2/5] Installing Docker...${NC}"
 if command -v docker &> /dev/null; then
   echo "Docker is already installed: $(docker --version)"
 else
@@ -43,40 +53,17 @@ else
   echo -e "${GREEN}Docker installed: $(docker --version)${NC}"
 fi
 
-echo -e "${YELLOW}[3/6] Installing Git...${NC}"
-if command -v git &> /dev/null; then
-  echo "Git is already installed: $(git --version)"
+echo -e "${YELLOW}[3/5] Verifying Docker Compose...${NC}"
+if docker compose version &> /dev/null; then
+  echo "Docker Compose: $(docker compose version --short)"
 else
-  apt-get install -y -qq git
-  echo -e "${GREEN}Git installed.${NC}"
+  echo -e "${RED}Docker Compose plugin not found. Installing...${NC}"
+  apt-get install -y -qq docker-compose-plugin
 fi
 
-echo -e "${YELLOW}[4/6] Setting up ProxHub directory...${NC}"
-mkdir -p "$INSTALL_DIR"
-echo "Install directory: $INSTALL_DIR"
-
-if [ -d "$INSTALL_DIR/.git" ]; then
-  echo "Existing installation found. Pulling latest changes..."
-  cd "$INSTALL_DIR"
-  git pull
-else
-  echo ""
-  echo -e "${YELLOW}You need to get the ProxHub source code into ${INSTALL_DIR}${NC}"
-  echo "Options:"
-  echo "  1. Clone from your git repo:  git clone <your-repo-url> $INSTALL_DIR"
-  echo "  2. Copy files manually:       scp -r ./* root@your-server:$INSTALL_DIR/"
-  echo ""
-
-  if [ ! -f "$INSTALL_DIR/docker-compose.yml" ]; then
-    echo -e "${RED}No source code found in $INSTALL_DIR${NC}"
-    echo "Please copy or clone the ProxHub source code to $INSTALL_DIR and re-run this script."
-    exit 1
-  fi
-fi
-
+echo -e "${YELLOW}[4/5] Configuring environment...${NC}"
 cd "$INSTALL_DIR"
 
-echo -e "${YELLOW}[5/6] Configuring environment...${NC}"
 if [ ! -f "$INSTALL_DIR/.env" ]; then
   if [ -f "$INSTALL_DIR/.env.example" ]; then
     cp "$INSTALL_DIR/.env.example" "$INSTALL_DIR/.env"
@@ -91,7 +78,8 @@ if [ ! -f "$INSTALL_DIR/.env" ]; then
     sed -i "s|http://your-server-ip:3000|http://$SERVER_IP:3000|" "$INSTALL_DIR/.env"
 
     echo -e "${GREEN}.env file created with auto-generated secrets.${NC}"
-    echo -e "${YELLOW}Review and edit $INSTALL_DIR/.env before starting:${NC}"
+    echo ""
+    echo -e "  ${YELLOW}Optional: Review and edit before continuing:${NC}"
     echo "  nano $INSTALL_DIR/.env"
     echo ""
   else
@@ -102,26 +90,44 @@ else
   echo ".env file already exists. Skipping."
 fi
 
-echo -e "${YELLOW}[6/6] Building and starting ProxHub...${NC}"
-cd "$INSTALL_DIR"
+echo -e "${YELLOW}[5/5] Building and starting ProxHub...${NC}"
+echo "This may take a few minutes on first build..."
+echo ""
 docker compose build --no-cache
 docker compose up -d
 
 echo ""
-echo -e "${GREEN}╔══════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║            ProxHub is now running!               ║${NC}"
-echo -e "${GREEN}╚══════════════════════════════════════════════════╝${NC}"
+sleep 3
+
+if docker compose ps --format '{{.Service}} {{.State}}' | grep -q "running"; then
+  echo -e "${GREEN}╔══════════════════════════════════════════════════╗${NC}"
+  echo -e "${GREEN}║            ProxHub is now running!               ║${NC}"
+  echo -e "${GREEN}╚══════════════════════════════════════════════════╝${NC}"
+else
+  echo -e "${RED}╔══════════════════════════════════════════════════╗${NC}"
+  echo -e "${RED}║     Something went wrong. Check logs below:      ║${NC}"
+  echo -e "${RED}╚══════════════════════════════════════════════════╝${NC}"
+  echo ""
+  docker compose logs --tail=50
+  exit 1
+fi
+
 echo ""
 SERVER_IP=$(hostname -I | awk '{print $1}')
-echo -e "  URL:      ${GREEN}http://$SERVER_IP:3000${NC}"
+APP_PORT=$(grep -E '^APP_PORT=' "$INSTALL_DIR/.env" 2>/dev/null | cut -d= -f2 || echo "3000")
+APP_PORT=${APP_PORT:-3000}
+
+echo -e "  URL:      ${GREEN}http://$SERVER_IP:$APP_PORT${NC}"
 echo -e "  Username: ${GREEN}admin${NC}"
 echo -e "  Password: ${GREEN}admin${NC}"
 echo ""
 echo -e "${YELLOW}IMPORTANT: Change the admin password after first login!${NC}"
 echo ""
-echo "Useful commands:"
-echo "  docker compose -f $INSTALL_DIR/docker-compose.yml logs -f    # View logs"
-echo "  docker compose -f $INSTALL_DIR/docker-compose.yml restart    # Restart"
-echo "  docker compose -f $INSTALL_DIR/docker-compose.yml down       # Stop"
-echo "  docker compose -f $INSTALL_DIR/docker-compose.yml up -d      # Start"
+echo "Useful commands (run from $INSTALL_DIR):"
+echo "  docker compose logs -f          # View live logs"
+echo "  docker compose logs app -f      # View app logs only"
+echo "  docker compose restart          # Restart all services"
+echo "  docker compose down             # Stop everything"
+echo "  docker compose up -d            # Start everything"
+echo "  docker compose up -d --build    # Rebuild and start"
 echo ""
