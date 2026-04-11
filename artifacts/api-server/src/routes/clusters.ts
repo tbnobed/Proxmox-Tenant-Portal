@@ -210,6 +210,7 @@ router.post("/clusters/:id/sync", requireAdmin, async (req, res): Promise<void> 
             memoryMb: pvm.memoryMb,
             diskGb: pvm.diskGb,
             tags: pvm.tags,
+            ipAddress: pvm.ipAddress,
           })
           .where(eq(vmsTable.id, existing.id));
         updated++;
@@ -224,6 +225,7 @@ router.post("/clusters/:id/sync", requireAdmin, async (req, res): Promise<void> 
           memoryMb: pvm.memoryMb,
           diskGb: pvm.diskGb,
           tags: pvm.tags,
+          ipAddress: pvm.ipAddress,
           clusterId: cluster.id,
         });
         added++;

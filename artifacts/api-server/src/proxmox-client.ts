@@ -38,6 +38,27 @@ export interface SyncedVm {
   memoryMb: number | null;
   diskGb: number | null;
   tags: string | null;
+  ipAddress: string | null;
+}
+
+interface ProxmoxVmConfig {
+  cores?: number;
+  sockets?: number;
+  memory?: number;
+  name?: string;
+  net0?: string;
+  net1?: string;
+  ipconfig0?: string;
+  [key: string]: unknown;
+}
+
+interface ProxmoxAgentInterface {
+  name: string;
+  "ip-addresses"?: { "ip-address": string; "ip-address-type": string; prefix?: number }[];
+}
+
+interface ProxmoxAgentNetResult {
+  result?: ProxmoxAgentInterface[];
 }
 
 export interface VncTicketResult {
@@ -464,6 +485,51 @@ export async function createLxcContainer(
   return result;
 }
 
+async function fetchVmIp(
+  host: string,
+  port: number,
+  nodeName: string,
+  vmType: "qemu" | "lxc",
+  vmid: number,
+  auth: ProxmoxAuth
+): Promise<string | null> {
+  try {
+    if (vmType === "qemu") {
+      const result = await apiGet<ProxmoxAgentNetResult>(
+        host, port,
+        `/api2/json/nodes/${nodeName}/qemu/${vmid}/agent/network-get-interfaces`,
+        auth
+      );
+      const ifaces = result?.result ?? (Array.isArray(result) ? result : []);
+      for (const iface of ifaces) {
+        if (iface.name === "lo") continue;
+        const addrs = iface["ip-addresses"] ?? [];
+        for (const addr of addrs) {
+          if (addr["ip-address-type"] === "ipv4" && addr["ip-address"] !== "127.0.0.1") {
+            return addr["ip-address"];
+          }
+        }
+      }
+    } else {
+      const config = await apiGet<ProxmoxVmConfig>(
+        host, port,
+        `/api2/json/nodes/${nodeName}/lxc/${vmid}/config`,
+        auth
+      );
+      if (config.ipconfig0) {
+        const match = config.ipconfig0.match(/ip=([^/,\s]+)/);
+        if (match) return match[1];
+      }
+      const net0 = (config as Record<string, unknown>)["net0"];
+      if (typeof net0 === "string") {
+        const ipMatch = net0.match(/ip=([^/,\s]+)/);
+        if (ipMatch) return ipMatch[1];
+      }
+    }
+  } catch {}
+  return null;
+}
+
 export async function syncFromProxmox(
   host: string,
   port: number,
@@ -483,16 +549,37 @@ export async function syncFromProxmox(
         host, port, `/api2/json/nodes/${node.node}/qemu`, auth
       );
       for (const vm of qemuVms) {
+        let cpus = vm.maxcpu ?? null;
+
+        if (!cpus) {
+          try {
+            const config = await apiGet<ProxmoxVmConfig>(
+              host, port,
+              `/api2/json/nodes/${node.node}/qemu/${vm.vmid}/config`,
+              auth
+            );
+            const cores = config.cores ?? 1;
+            const sockets = config.sockets ?? 1;
+            cpus = cores * sockets;
+          } catch {}
+        }
+
+        let ipAddress: string | null = null;
+        if (vm.status === "running") {
+          ipAddress = await fetchVmIp(host, port, node.node, "qemu", vm.vmid, auth);
+        }
+
         allVms.push({
           vmId: vm.vmid,
           name: vm.name ?? `vm-${vm.vmid}`,
           node: node.node,
           type: "qemu",
           status: vm.status,
-          cpus: vm.maxcpu ?? null,
+          cpus,
           memoryMb: vm.maxmem ? Math.round(vm.maxmem / 1024 / 1024) : null,
           diskGb: vm.maxdisk ? Math.round(vm.maxdisk / 1024 / 1024 / 1024) : null,
           tags: vm.tags ?? null,
+          ipAddress,
         });
       }
     } catch (e) {
@@ -504,16 +591,35 @@ export async function syncFromProxmox(
         host, port, `/api2/json/nodes/${node.node}/lxc`, auth
       );
       for (const vm of lxcVms) {
+        let cpus = vm.maxcpu ?? null;
+
+        if (!cpus) {
+          try {
+            const config = await apiGet<ProxmoxVmConfig>(
+              host, port,
+              `/api2/json/nodes/${node.node}/lxc/${vm.vmid}/config`,
+              auth
+            );
+            cpus = config.cores ?? 1;
+          } catch {}
+        }
+
+        let ipAddress: string | null = null;
+        if (vm.status === "running") {
+          ipAddress = await fetchVmIp(host, port, node.node, "lxc", vm.vmid, auth);
+        }
+
         allVms.push({
           vmId: vm.vmid,
           name: vm.name ?? `ct-${vm.vmid}`,
           node: node.node,
           type: "lxc",
           status: vm.status,
-          cpus: vm.maxcpu ?? null,
+          cpus,
           memoryMb: vm.maxmem ? Math.round(vm.maxmem / 1024 / 1024) : null,
           diskGb: vm.maxdisk ? Math.round(vm.maxdisk / 1024 / 1024 / 1024) : null,
           tags: vm.tags ?? null,
+          ipAddress,
         });
       }
     } catch (e) {
