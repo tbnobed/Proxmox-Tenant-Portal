@@ -154,15 +154,30 @@ export default function AccessPage() {
             <p className="text-sm text-muted-foreground p-4 text-center">No tenant access grants</p>
           ) : (
             <div className="divide-y divide-border">
-              {tenantAccess.map(a => (
-                <div key={a.id} className="flex items-center justify-between px-4 py-2.5">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{a.tenantName}</p>
-                    <p className="text-xs text-muted-foreground">{a.vmName}</p>
+              {Object.entries(
+                tenantAccess.reduce<Record<string, typeof tenantAccess>>((groups, a) => {
+                  const key = a.tenantName ?? "Unknown";
+                  if (!groups[key]) groups[key] = [];
+                  groups[key].push(a);
+                  return groups;
+                }, {})
+              ).map(([tenantName, entries]) => (
+                <div key={tenantName} className="px-4 py-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Building2 className="w-3.5 h-3.5 text-purple-400" />
+                    <p className="text-sm font-semibold text-foreground">{tenantName}</p>
+                    <span className="text-xs text-muted-foreground">{entries.length} VM{entries.length !== 1 ? "s" : ""}</span>
                   </div>
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleRevokeTenant(a.id)}>
-                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                  </Button>
+                  <div className="space-y-1 ml-5">
+                    {entries.map(a => (
+                      <div key={a.id} className="flex items-center justify-between py-1">
+                        <span className="text-sm text-muted-foreground">{a.vmName}</span>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleRevokeTenant(a.id)}>
+                          <Trash2 className="w-3 h-3 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -188,15 +203,30 @@ export default function AccessPage() {
             <p className="text-sm text-muted-foreground p-4 text-center">No user access grants</p>
           ) : (
             <div className="divide-y divide-border">
-              {userAccess.map(a => (
-                <div key={a.id} className="flex items-center justify-between px-4 py-2.5">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{a.userName}</p>
-                    <p className="text-xs text-muted-foreground">{a.vmName}</p>
+              {Object.entries(
+                userAccess.reduce<Record<string, typeof userAccess>>((groups, a) => {
+                  const key = a.userName ?? "Unknown";
+                  if (!groups[key]) groups[key] = [];
+                  groups[key].push(a);
+                  return groups;
+                }, {})
+              ).map(([userName, entries]) => (
+                <div key={userName} className="px-4 py-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users className="w-3.5 h-3.5 text-blue-400" />
+                    <p className="text-sm font-semibold text-foreground">{userName}</p>
+                    <span className="text-xs text-muted-foreground">{entries.length} VM{entries.length !== 1 ? "s" : ""}</span>
                   </div>
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleRevokeUser(a.id)}>
-                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                  </Button>
+                  <div className="space-y-1 ml-5">
+                    {entries.map(a => (
+                      <div key={a.id} className="flex items-center justify-between py-1">
+                        <span className="text-sm text-muted-foreground">{a.vmName}</span>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleRevokeUser(a.id)}>
+                          <Trash2 className="w-3 h-3 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
