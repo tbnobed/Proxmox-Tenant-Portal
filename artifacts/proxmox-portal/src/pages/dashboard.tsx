@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { useGetDashboardStats, useGetRecentActivity } from "@workspace/api-client-react";
-import { Server, Building2, Users, Monitor, Activity, Play, Square, HeartPulse, Cpu, HardDrive, MemoryStick, ChevronDown, ChevronRight } from "lucide-react";
+import { useGetDashboardStats, useGetRecentActivity, useListVms } from "@workspace/api-client-react";
+import type { Vm } from "@workspace/api-client-react";
+import { Server, Building2, Users, Monitor, Activity, Play, Square, HeartPulse, Cpu, HardDrive, MemoryStick, ChevronDown, ChevronRight, ExternalLink, Pause, AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -269,12 +270,127 @@ function InfraHealthPanel({ clusters }: { clusters: ClusterHealthData[] }) {
   );
 }
 
+function VmHealthCard({ vm }: { vm: Vm }) {
+  const health = computeVmHealth(vm);
+  const h = getHealthResult(health);
+  const statusIcon = vm.status === "running"
+    ? <Play className="w-3 h-3 text-emerald-400" />
+    : vm.status === "paused"
+    ? <Pause className="w-3 h-3 text-yellow-400" />
+    : <Square className="w-3 h-3 text-gray-400" />;
+
+  return (
+    <Link href={`/vms/${vm.id}`} className="block">
+      <div className="rounded-md border border-border/60 bg-secondary/5 p-3 hover:bg-secondary/10 transition-colors space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <HealthDot level={health} size="md" />
+            <span className="text-sm font-medium text-foreground truncate">{vm.name}</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className={cn("text-[10px] px-1.5 py-0.5 rounded border font-medium inline-flex items-center gap-1", h.bgColor, h.color, h.borderColor)}>
+              {statusIcon}
+              {vm.status}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 text-xs">
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <Cpu className="w-3 h-3 shrink-0" />
+            <span>{vm.cpus ?? "—"} vCPU{(vm.cpus ?? 0) !== 1 ? "s" : ""}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <MemoryStick className="w-3 h-3 shrink-0" />
+            <span>{vm.memoryMb ? `${vm.memoryMb >= 1024 ? `${(vm.memoryMb / 1024).toFixed(1)} GB` : `${vm.memoryMb} MB`}` : "—"}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <HardDrive className="w-3 h-3 shrink-0" />
+            <span>{vm.diskGb ? `${vm.diskGb} GB` : "—"}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+          <span className="truncate">{vm.clusterName ?? `Cluster #${vm.clusterId}`}</span>
+          {vm.ipAddress && <span className="font-mono shrink-0">{vm.ipAddress}</span>}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function MyVmsHealthPanel({ vms }: { vms: Vm[] }) {
+  const running = vms.filter(v => v.status === "running");
+  const stopped = vms.filter(v => v.status === "stopped");
+  const paused = vms.filter(v => v.status === "paused");
+  const other = vms.filter(v => !["running", "stopped", "paused"].includes(v.status));
+
+  const allHealthLevels = vms.map(v => computeVmHealth(v));
+  const overallHealth = aggregateHealth(allHealthLevels);
+  const needsAttention = stopped.length + paused.length + other.length;
+
+  const attentionParts: string[] = [];
+  if (paused.length > 0) attentionParts.push(`${paused.length} paused`);
+  if (stopped.length > 0) attentionParts.push(`${stopped.length} stopped`);
+  if (other.length > 0) attentionParts.push(`${other.length} unknown`);
+
+  return (
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="flex items-center gap-3 px-4 md:px-5 py-3 md:py-4 border-b border-border flex-wrap">
+        <HeartPulse className="w-5 h-5 text-emerald-400" />
+        <div className="flex-1 min-w-0">
+          <h2 className="text-sm font-semibold text-foreground">My VMs Health</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {vms.length} VM{vms.length !== 1 ? "s" : ""} — {running.length} running
+            {stopped.length > 0 && `, ${stopped.length} stopped`}
+            {paused.length > 0 && `, ${paused.length} paused`}
+          </p>
+        </div>
+        <HealthBadge level={overallHealth} />
+      </div>
+
+      {needsAttention > 0 && (
+        <div className="px-4 py-2.5 bg-yellow-500/5 border-b border-yellow-500/20 flex items-center gap-2">
+          <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
+          <p className="text-xs text-yellow-500">
+            {needsAttention} VM{needsAttention !== 1 ? "s" : ""} {needsAttention !== 1 ? "need" : "needs"} attention — {attentionParts.join(", ")}
+          </p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-3 gap-px bg-border/30">
+        <div className="bg-card px-4 py-3 text-center">
+          <p className="text-lg font-bold text-emerald-400">{running.length}</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Running</p>
+        </div>
+        <div className="bg-card px-4 py-3 text-center">
+          <p className="text-lg font-bold text-gray-400">{stopped.length}</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Stopped</p>
+        </div>
+        <div className="bg-card px-4 py-3 text-center">
+          <p className="text-lg font-bold text-yellow-400">{paused.length + other.length}</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Other</p>
+        </div>
+      </div>
+
+      <div className="p-3 md:p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {vms.map(vm => (
+            <VmHealthCard key={vm.id} vm={vm} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { data: stats } = useGetDashboardStats();
   const { data: activity } = useGetRecentActivity();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const { data: healthData, loading: healthLoading } = useInfraHealth(isAdmin);
+  const { data: myVms, isLoading: myVmsLoading } = useListVms(undefined, { query: { enabled: !isAdmin } });
 
   return (
     <div className="space-y-6 md:space-y-8">
@@ -315,7 +431,7 @@ export default function DashboardPage() {
           />
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard
             label="My Virtual Machines"
             value={stats?.totalVms}
@@ -323,33 +439,54 @@ export default function DashboardPage() {
             icon={Monitor}
             color="bg-olive/20 text-sand"
           />
+          <StatCard
+            label="Running"
+            value={stats?.runningVms}
+            icon={Play}
+            color="bg-emerald-500/15 text-emerald-400"
+          />
+          <StatCard
+            label="Stopped"
+            value={stats?.stoppedVms}
+            icon={Square}
+            color="bg-gray-500/15 text-gray-400"
+          />
+          <StatCard
+            label="Tenant"
+            value={user?.tenantId ? 1 : 0}
+            sub={user?.tenantId ? "Assigned" : "None"}
+            icon={Building2}
+            color="bg-forest/40 text-sand"
+          />
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Play className="w-4 h-4 text-olive" />
-            <span className="text-sm font-medium text-foreground">Running VMs</span>
+      {isAdmin && (
+        <div className="grid grid-cols-2 gap-4">
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Play className="w-4 h-4 text-olive" />
+              <span className="text-sm font-medium text-foreground">Running VMs</span>
+            </div>
+            {stats === undefined ? (
+              <Skeleton className="h-9 w-20" />
+            ) : (
+              <p className="text-3xl font-bold text-olive">{stats.runningVms}</p>
+            )}
           </div>
-          {stats === undefined ? (
-            <Skeleton className="h-9 w-20" />
-          ) : (
-            <p className="text-3xl font-bold text-olive">{stats.runningVms}</p>
-          )}
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Square className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-medium text-foreground">Stopped VMs</span>
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Square className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">Stopped VMs</span>
+            </div>
+            {stats === undefined ? (
+              <Skeleton className="h-9 w-20" />
+            ) : (
+              <p className="text-3xl font-bold text-muted-foreground">{stats.stoppedVms}</p>
+            )}
           </div>
-          {stats === undefined ? (
-            <Skeleton className="h-9 w-20" />
-          ) : (
-            <p className="text-3xl font-bold text-muted-foreground">{stats.stoppedVms}</p>
-          )}
         </div>
-      </div>
+      )}
 
       {isAdmin && (
         healthLoading ? (
@@ -357,6 +494,20 @@ export default function DashboardPage() {
         ) : healthData && healthData.length > 0 ? (
           <InfraHealthPanel clusters={healthData} />
         ) : null
+      )}
+
+      {!isAdmin && (
+        myVmsLoading ? (
+          <Skeleton className="h-48 w-full rounded-lg" />
+        ) : myVms && myVms.length > 0 ? (
+          <MyVmsHealthPanel vms={myVms} />
+        ) : (
+          <div className="rounded-lg border border-dashed border-border p-8 text-center">
+            <Monitor className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">No VMs assigned to you yet</p>
+            <p className="text-xs text-muted-foreground mt-1">Contact your admin to get VM access</p>
+          </div>
+        )
       )}
 
       <div className="rounded-lg border border-border bg-card">
