@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import crypto from "node:crypto";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, tenantsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -101,6 +101,15 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     return;
   }
 
+  let tenantName: string | null = null;
+  if (user.tenantId) {
+    const [tenant] = await db
+      .select({ name: tenantsTable.name })
+      .from(tenantsTable)
+      .where(eq(tenantsTable.id, user.tenantId));
+    tenantName = tenant?.name ?? null;
+  }
+
   res.json({
     id: user.id,
     username: user.username,
@@ -108,6 +117,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     fullName: user.fullName,
     role: user.role,
     tenantId: user.tenantId,
+    tenantName,
   });
 });
 

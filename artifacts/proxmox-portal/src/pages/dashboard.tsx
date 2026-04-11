@@ -454,7 +454,7 @@ export default function DashboardPage() {
           <StatCard
             label="Tenant"
             value={user?.tenantId ? 1 : 0}
-            sub={user?.tenantId ? "Assigned" : "None"}
+            sub={user?.tenantName ?? (user?.tenantId ? "Assigned" : "None")}
             icon={Building2}
             color="bg-forest/40 text-sand"
           />

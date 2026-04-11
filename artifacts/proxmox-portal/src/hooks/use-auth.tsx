@@ -7,6 +7,7 @@ interface AuthUser {
   fullName: string | null;
   role: string;
   tenantId: number | null;
+  tenantName: string | null;
 }
 
 interface AuthContextValue {
