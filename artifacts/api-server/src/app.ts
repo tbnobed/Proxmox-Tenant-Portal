@@ -53,9 +53,9 @@ app.use(
 app.use("/api", authRouter);
 app.use("/api", passwordResetRouter);
 app.use("/api", invitesRouter);
+app.use("/api", requireAuth, tenantQuotasRouter);
 app.use("/api", requireAuth, router);
 app.use("/api", requireAuth, notificationsRouter);
-app.use("/api", requireAuth, tenantQuotasRouter);
 
 
 export default app;
