@@ -1,0 +1,17 @@
+node_modules
+*/node_modules
+*/*/node_modules
+.git
+.env
+.env.*
+!.env.example
+*.log
+dist
+*/dist
+*/*/dist
+.local
+attached_assets
+screenshots
+.replit
+replit.nix
+replit.md

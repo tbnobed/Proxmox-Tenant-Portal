@@ -106,4 +106,30 @@ A full-stack portal for managing multiple Proxmox clusters, tenants, users, and 
 - `reset-password.tsx` — Public password reset page
 - `forgot-password.tsx` — Forgot password form (email entry)
 
+## Docker Deployment
+
+ProxHub can be deployed to any Ubuntu server via Docker.
+
+### Files
+- `Dockerfile` — Multi-stage build (deps → build → production). Non-root `proxhub` user. Runs on port 3000.
+- `docker-compose.yml` — App + PostgreSQL 16 with health checks, env var passthrough.
+- `docker-entrypoint.sh` — Runs `drizzle-kit push --force` to sync DB schema, then starts the Node server.
+- `deploy.sh` — Full Ubuntu deployment script: installs Docker, Git, sets up `/opt/proxhub`, auto-generates secrets, builds and starts containers.
+- `.env.example` — All configurable environment variables with documentation.
+- `.dockerignore` — Keeps node_modules, .git, secrets out of build context.
+
+### Production Architecture
+- API server serves the built frontend static files (SPA) in production mode
+- SPA fallback excludes `/api/*` routes so API 404s return proper JSON
+- Session cookie `secure` flag controlled by `COOKIE_SECURE` env var (set `true` when behind HTTPS/TLS)
+- `trust proxy` enabled in production for proper IP/protocol detection behind reverse proxy
+- DB schema auto-synced on container start via drizzle-kit push
+- Default admin user `admin`/`admin` seeded on first boot (no admin exists)
+
+### Quick Deploy
+```bash
+scp -r ./* root@your-server:/opt/proxhub/
+ssh root@your-server 'cd /opt/proxhub && bash deploy.sh'
+```
+
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
