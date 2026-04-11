@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
-import { db, tenantsTable, tenantClusterAccessTable, clustersTable, vmsTable } from "@workspace/db";
+import { eq, and, or, inArray, sql } from "drizzle-orm";
+import { db, tenantsTable, tenantClusterAccessTable, clustersTable, vmsTable, tenantVmAccessTable } from "@workspace/db";
 import { requireAdmin, getSessionUser } from "../middleware/auth";
 
 const router: IRouter = Router();
@@ -16,12 +16,30 @@ router.get("/tenants/:id/quotas", async (req, res): Promise<void> => {
   const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, id));
   if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
 
-  const tenantVms = await db.select({
+  const directVms = await db.select({
+    id: vmsTable.id,
     cpus: vmsTable.cpus,
     memoryMb: vmsTable.memoryMb,
     diskGb: vmsTable.diskGb,
   }).from(vmsTable).where(eq(vmsTable.tenantId, id));
 
+  const accessVmIds = await db.select({ vmId: tenantVmAccessTable.vmId })
+    .from(tenantVmAccessTable)
+    .where(eq(tenantVmAccessTable.tenantId, id));
+
+  const directVmIds = new Set(directVms.map(v => v.id));
+  const extraVmIds = accessVmIds.map(a => a.vmId).filter(vid => !directVmIds.has(vid));
+
+  let accessVms: { cpus: number | null; memoryMb: number | null; diskGb: number | null }[] = [];
+  if (extraVmIds.length > 0) {
+    accessVms = await db.select({
+      cpus: vmsTable.cpus,
+      memoryMb: vmsTable.memoryMb,
+      diskGb: vmsTable.diskGb,
+    }).from(vmsTable).where(inArray(vmsTable.id, extraVmIds));
+  }
+
+  const tenantVms = [...directVms, ...accessVms];
   let usedCpus = 0, usedMemoryMb = 0, usedDiskGb = 0;
   for (const v of tenantVms) {
     usedCpus += v.cpus ?? 0;

@@ -1,4 +1,4 @@
-import { db, tenantsTable, vmsTable, tenantClusterAccessTable } from "@workspace/db";
+import { db, tenantsTable, vmsTable, tenantClusterAccessTable, tenantVmAccessTable } from "@workspace/db";
 import { eq, inArray, and } from "drizzle-orm";
 
 export interface QuotaCheckResult {
@@ -34,12 +34,30 @@ export async function checkTenantQuota(
     return { allowed: false, reason: `Exceeds per-VM disk limit (max ${tenant.maxDiskGbPerVm} GB)` };
   }
 
-  const tenantVms = await db.select({
+  const directVms = await db.select({
+    id: vmsTable.id,
     cpus: vmsTable.cpus,
     memoryMb: vmsTable.memoryMb,
     diskGb: vmsTable.diskGb,
   }).from(vmsTable).where(eq(vmsTable.tenantId, tenantId));
 
+  const accessVmIds = await db.select({ vmId: tenantVmAccessTable.vmId })
+    .from(tenantVmAccessTable)
+    .where(eq(tenantVmAccessTable.tenantId, tenantId));
+
+  const directVmIds = new Set(directVms.map(v => v.id));
+  const extraVmIds = accessVmIds.map(a => a.vmId).filter(vid => !directVmIds.has(vid));
+
+  let accessVms: { cpus: number | null; memoryMb: number | null; diskGb: number | null }[] = [];
+  if (extraVmIds.length > 0) {
+    accessVms = await db.select({
+      cpus: vmsTable.cpus,
+      memoryMb: vmsTable.memoryMb,
+      diskGb: vmsTable.diskGb,
+    }).from(vmsTable).where(inArray(vmsTable.id, extraVmIds));
+  }
+
+  const tenantVms = [...directVms, ...accessVms];
   const vmCount = tenantVms.length;
   let usedCpus = 0, usedMem = 0, usedDisk = 0;
   for (const v of tenantVms) {
