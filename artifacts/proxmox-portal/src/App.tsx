@@ -21,6 +21,7 @@ import AccessPage from "@/pages/access";
 import VmConsolePage from "@/pages/vm-console";
 import CreateVmPage from "@/pages/create-vm";
 import NotificationsPage from "@/pages/notifications";
+import RequestsPage from "@/pages/requests";
 import AcceptInvitePage from "@/pages/accept-invite";
 import ResetPasswordPage from "@/pages/reset-password";
 import ForgotPasswordPage from "@/pages/forgot-password";
@@ -100,6 +101,7 @@ function AppRouter() {
         <Route path="/vms/:id/console" component={VmConsolePage} />
         <Route path="/access">{() => <AdminRoute component={AccessPage} />}</Route>
         <Route path="/notifications">{() => <AdminRoute component={NotificationsPage} />}</Route>
+        <Route path="/requests" component={RequestsPage} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

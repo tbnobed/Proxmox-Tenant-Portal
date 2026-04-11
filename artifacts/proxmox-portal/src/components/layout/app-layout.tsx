@@ -8,6 +8,7 @@ import {
   MonitorPlay,
   ShieldAlert,
   Bell,
+  FileText,
   LogOut,
   Sun,
   Moon,
@@ -30,6 +31,7 @@ const navItems = [
   { href: "/vms", label: "Virtual Machines", icon: MonitorPlay, adminOnly: false },
   { href: "/access", label: "Access Control", icon: ShieldAlert, adminOnly: true },
   { href: "/notifications", label: "Notifications", icon: Bell, adminOnly: true },
+  { href: "/requests", label: "Requests", icon: FileText, adminOnly: false },
 ];
 
 export function AppLayout({ children }: AppLayoutProps) {

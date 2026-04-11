@@ -20,6 +20,7 @@ import type {
   ActivityEvent,
   Cluster,
   CreateClusterBody,
+  CreateRequestBody,
   CreateTenantBody,
   CreateUserBody,
   CreateVmBody,
@@ -28,7 +29,10 @@ import type {
   GrantTenantVmAccessBody,
   GrantUserVmAccessBody,
   HealthStatus,
+  InfrastructureRequest,
+  ListRequestsParams,
   ListVmsParams,
+  ReviewRequestBody,
   SyncResult,
   Tenant,
   TenantSummary,
@@ -2758,3 +2762,357 @@ export function useGetRecentActivity<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List infrastructure requests
+ */
+export const getListRequestsUrl = (params?: ListRequestsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/requests?${stringifiedParams}`
+    : `/api/requests`;
+};
+
+export const listRequests = async (
+  params?: ListRequestsParams,
+  options?: RequestInit,
+): Promise<InfrastructureRequest[]> => {
+  return customFetch<InfrastructureRequest[]>(getListRequestsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListRequestsQueryKey = (params?: ListRequestsParams) => {
+  return [`/api/requests`, ...(params ? [params] : [])] as const;
+};
+
+export const getListRequestsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listRequests>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListRequestsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRequests>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListRequestsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listRequests>>> = ({
+    signal,
+  }) => listRequests(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listRequests>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListRequestsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listRequests>>
+>;
+export type ListRequestsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List infrastructure requests
+ */
+
+export function useListRequests<
+  TData = Awaited<ReturnType<typeof listRequests>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListRequestsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRequests>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListRequestsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Submit a new infrastructure request
+ */
+export const getCreateRequestUrl = () => {
+  return `/api/requests`;
+};
+
+export const createRequest = async (
+  createRequestBody: CreateRequestBody,
+  options?: RequestInit,
+): Promise<InfrastructureRequest> => {
+  return customFetch<InfrastructureRequest>(getCreateRequestUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createRequestBody),
+  });
+};
+
+export const getCreateRequestMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRequest>>,
+    TError,
+    { data: BodyType<CreateRequestBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createRequest>>,
+  TError,
+  { data: BodyType<CreateRequestBody> },
+  TContext
+> => {
+  const mutationKey = ["createRequest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createRequest>>,
+    { data: BodyType<CreateRequestBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createRequest(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createRequest>>
+>;
+export type CreateRequestMutationBody = BodyType<CreateRequestBody>;
+export type CreateRequestMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Submit a new infrastructure request
+ */
+export const useCreateRequest = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRequest>>,
+    TError,
+    { data: BodyType<CreateRequestBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createRequest>>,
+  TError,
+  { data: BodyType<CreateRequestBody> },
+  TContext
+> => {
+  return useMutation(getCreateRequestMutationOptions(options));
+};
+
+/**
+ * @summary Get a single infrastructure request
+ */
+export const getGetRequestUrl = (id: number) => {
+  return `/api/requests/${id}`;
+};
+
+export const getRequest = async (
+  id: number,
+  options?: RequestInit,
+): Promise<InfrastructureRequest> => {
+  return customFetch<InfrastructureRequest>(getGetRequestUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRequestQueryKey = (id: number) => {
+  return [`/api/requests/${id}`] as const;
+};
+
+export const getGetRequestQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRequest>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRequest>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetRequestQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getRequest>>> = ({
+    signal,
+  }) => getRequest(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRequest>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRequestQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRequest>>
+>;
+export type GetRequestQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a single infrastructure request
+ */
+
+export function useGetRequest<
+  TData = Awaited<ReturnType<typeof getRequest>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRequest>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRequestQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Approve or deny a request (admin only)
+ */
+export const getReviewRequestUrl = (id: number) => {
+  return `/api/requests/${id}/review`;
+};
+
+export const reviewRequest = async (
+  id: number,
+  reviewRequestBody: ReviewRequestBody,
+  options?: RequestInit,
+): Promise<InfrastructureRequest> => {
+  return customFetch<InfrastructureRequest>(getReviewRequestUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reviewRequestBody),
+  });
+};
+
+export const getReviewRequestMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reviewRequest>>,
+    TError,
+    { id: number; data: BodyType<ReviewRequestBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reviewRequest>>,
+  TError,
+  { id: number; data: BodyType<ReviewRequestBody> },
+  TContext
+> => {
+  const mutationKey = ["reviewRequest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reviewRequest>>,
+    { id: number; data: BodyType<ReviewRequestBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return reviewRequest(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReviewRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reviewRequest>>
+>;
+export type ReviewRequestMutationBody = BodyType<ReviewRequestBody>;
+export type ReviewRequestMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Approve or deny a request (admin only)
+ */
+export const useReviewRequest = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reviewRequest>>,
+    TError,
+    { id: number; data: BodyType<ReviewRequestBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reviewRequest>>,
+  TError,
+  { id: number; data: BodyType<ReviewRequestBody> },
+  TContext
+> => {
+  return useMutation(getReviewRequestMutationOptions(options));
+};

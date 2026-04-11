@@ -7,12 +7,14 @@ import usersRouter from "./users";
 import vmsRouter from "./vms";
 import accessRouter from "./access";
 import dashboardRouter from "./dashboard";
+import requestsRouter from "./requests";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(vmsRouter);
 router.use(dashboardRouter);
+router.use(requestsRouter);
 
 router.use(clustersRouter);
 router.use(requireAdmin, tenantsRouter);

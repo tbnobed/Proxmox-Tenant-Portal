@@ -545,3 +545,138 @@ export const GetRecentActivityResponseItem = zod.object({
 export const GetRecentActivityResponse = zod.array(
   GetRecentActivityResponseItem,
 );
+
+/**
+ * @summary List infrastructure requests
+ */
+export const ListRequestsQueryParams = zod.object({
+  status: zod.coerce.string().optional(),
+  requestType: zod.coerce.string().optional(),
+});
+
+export const ListRequestsResponseItem = zod.object({
+  id: zod.number(),
+  requestType: zod.string(),
+  status: zod.string(),
+  priority: zod.string(),
+  vmName: zod.string(),
+  vmIpAddress: zod.string(),
+  portNumber: zod.string(),
+  protocol: zod.string(),
+  clusterName: zod.string(),
+  clusterIp: zod.string(),
+  direction: zod.string().nullish(),
+  sourceNetwork: zod.string().nullish(),
+  domainName: zod.string().nullish(),
+  sslOption: zod.string().nullish(),
+  forwardPort: zod.string().nullish(),
+  description: zod.string().nullish(),
+  requestedById: zod.number().nullish(),
+  requestedByName: zod.string(),
+  tenantId: zod.number().nullish(),
+  tenantName: zod.string().nullish(),
+  reviewedById: zod.number().nullish(),
+  reviewedByName: zod.string().nullish(),
+  adminNotes: zod.string().nullish(),
+  reviewedAt: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+export const ListRequestsResponse = zod.array(ListRequestsResponseItem);
+
+/**
+ * @summary Submit a new infrastructure request
+ */
+export const CreateRequestBody = zod.object({
+  requestType: zod.string(),
+  priority: zod.string().optional(),
+  vmName: zod.string(),
+  vmIpAddress: zod.string(),
+  portNumber: zod.string(),
+  protocol: zod.string(),
+  clusterName: zod.string(),
+  clusterIp: zod.string(),
+  direction: zod.string().nullish(),
+  sourceNetwork: zod.string().nullish(),
+  domainName: zod.string().nullish(),
+  sslOption: zod.string().nullish(),
+  forwardPort: zod.string().nullish(),
+  description: zod.string().nullish(),
+});
+
+/**
+ * @summary Get a single infrastructure request
+ */
+export const GetRequestParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetRequestResponse = zod.object({
+  id: zod.number(),
+  requestType: zod.string(),
+  status: zod.string(),
+  priority: zod.string(),
+  vmName: zod.string(),
+  vmIpAddress: zod.string(),
+  portNumber: zod.string(),
+  protocol: zod.string(),
+  clusterName: zod.string(),
+  clusterIp: zod.string(),
+  direction: zod.string().nullish(),
+  sourceNetwork: zod.string().nullish(),
+  domainName: zod.string().nullish(),
+  sslOption: zod.string().nullish(),
+  forwardPort: zod.string().nullish(),
+  description: zod.string().nullish(),
+  requestedById: zod.number().nullish(),
+  requestedByName: zod.string(),
+  tenantId: zod.number().nullish(),
+  tenantName: zod.string().nullish(),
+  reviewedById: zod.number().nullish(),
+  reviewedByName: zod.string().nullish(),
+  adminNotes: zod.string().nullish(),
+  reviewedAt: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Approve or deny a request (admin only)
+ */
+export const ReviewRequestParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ReviewRequestBody = zod.object({
+  status: zod.string(),
+  adminNotes: zod.string().nullish(),
+});
+
+export const ReviewRequestResponse = zod.object({
+  id: zod.number(),
+  requestType: zod.string(),
+  status: zod.string(),
+  priority: zod.string(),
+  vmName: zod.string(),
+  vmIpAddress: zod.string(),
+  portNumber: zod.string(),
+  protocol: zod.string(),
+  clusterName: zod.string(),
+  clusterIp: zod.string(),
+  direction: zod.string().nullish(),
+  sourceNetwork: zod.string().nullish(),
+  domainName: zod.string().nullish(),
+  sslOption: zod.string().nullish(),
+  forwardPort: zod.string().nullish(),
+  description: zod.string().nullish(),
+  requestedById: zod.number().nullish(),
+  requestedByName: zod.string(),
+  tenantId: zod.number().nullish(),
+  tenantName: zod.string().nullish(),
+  reviewedById: zod.number().nullish(),
+  reviewedByName: zod.string().nullish(),
+  adminNotes: zod.string().nullish(),
+  reviewedAt: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});

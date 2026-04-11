@@ -22,6 +22,8 @@ tags:
     description: Access control
   - name: dashboard
     description: Dashboard and stats
+  - name: requests
+    description: Infrastructure requests (firewall/proxy)
 
 paths:
   /healthz:
@@ -725,6 +727,92 @@ paths:
                 items:
                   $ref: "#/components/schemas/ActivityEvent"
 
+  # Infrastructure Requests
+  /requests:
+    get:
+      operationId: listRequests
+      tags: [requests]
+      summary: List infrastructure requests
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: requestType
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InfrastructureRequest"
+    post:
+      operationId: createRequest
+      tags: [requests]
+      summary: Submit a new infrastructure request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRequestBody"
+      responses:
+        "201":
+          description: Request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InfrastructureRequest"
+
+  /requests/{id}:
+    get:
+      operationId: getRequest
+      tags: [requests]
+      summary: Get a single infrastructure request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Request details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InfrastructureRequest"
+
+  /requests/{id}/review:
+    post:
+      operationId: reviewRequest
+      tags: [requests]
+      summary: Approve or deny a request (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewRequestBody"
+      responses:
+        "200":
+          description: Request reviewed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InfrastructureRequest"
+
 components:
   schemas:
     HealthStatus:
@@ -1270,3 +1358,123 @@ components:
         - eventType
         - description
         - createdAt
+
+    InfrastructureRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+        requestType:
+          type: string
+        status:
+          type: string
+        priority:
+          type: string
+        vmName:
+          type: string
+        vmIpAddress:
+          type: string
+        portNumber:
+          type: string
+        protocol:
+          type: string
+        clusterName:
+          type: string
+        clusterIp:
+          type: string
+        direction:
+          type: ["string", "null"]
+        sourceNetwork:
+          type: ["string", "null"]
+        domainName:
+          type: ["string", "null"]
+        sslOption:
+          type: ["string", "null"]
+        forwardPort:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        requestedById:
+          type: ["integer", "null"]
+        requestedByName:
+          type: string
+        tenantId:
+          type: ["integer", "null"]
+        tenantName:
+          type: ["string", "null"]
+        reviewedById:
+          type: ["integer", "null"]
+        reviewedByName:
+          type: ["string", "null"]
+        adminNotes:
+          type: ["string", "null"]
+        reviewedAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - requestType
+        - status
+        - priority
+        - vmName
+        - vmIpAddress
+        - portNumber
+        - protocol
+        - clusterName
+        - clusterIp
+        - requestedByName
+        - createdAt
+        - updatedAt
+
+    CreateRequestBody:
+      type: object
+      properties:
+        requestType:
+          type: string
+        priority:
+          type: string
+        vmName:
+          type: string
+        vmIpAddress:
+          type: string
+        portNumber:
+          type: string
+        protocol:
+          type: string
+        clusterName:
+          type: string
+        clusterIp:
+          type: string
+        direction:
+          type: ["string", "null"]
+        sourceNetwork:
+          type: ["string", "null"]
+        domainName:
+          type: ["string", "null"]
+        sslOption:
+          type: ["string", "null"]
+        forwardPort:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+      required:
+        - requestType
+        - vmName
+        - vmIpAddress
+        - portNumber
+        - protocol
+        - clusterName
+        - clusterIp
+
+    ReviewRequestBody:
+      type: object
+      properties:
+        status:
+          type: string
+        adminNotes:
+          type: ["string", "null"]
+      required:
+        - status

@@ -297,6 +297,77 @@ export interface ActivityEvent {
   createdAt: string;
 }
 
+export interface InfrastructureRequest {
+  id: number;
+  requestType: string;
+  status: string;
+  priority: string;
+  vmName: string;
+  vmIpAddress: string;
+  portNumber: string;
+  protocol: string;
+  clusterName: string;
+  clusterIp: string;
+  /** @nullable */
+  direction?: string | null;
+  /** @nullable */
+  sourceNetwork?: string | null;
+  /** @nullable */
+  domainName?: string | null;
+  /** @nullable */
+  sslOption?: string | null;
+  /** @nullable */
+  forwardPort?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  requestedById?: number | null;
+  requestedByName: string;
+  /** @nullable */
+  tenantId?: number | null;
+  /** @nullable */
+  tenantName?: string | null;
+  /** @nullable */
+  reviewedById?: number | null;
+  /** @nullable */
+  reviewedByName?: string | null;
+  /** @nullable */
+  adminNotes?: string | null;
+  /** @nullable */
+  reviewedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRequestBody {
+  requestType: string;
+  priority?: string;
+  vmName: string;
+  vmIpAddress: string;
+  portNumber: string;
+  protocol: string;
+  clusterName: string;
+  clusterIp: string;
+  /** @nullable */
+  direction?: string | null;
+  /** @nullable */
+  sourceNetwork?: string | null;
+  /** @nullable */
+  domainName?: string | null;
+  /** @nullable */
+  sslOption?: string | null;
+  /** @nullable */
+  forwardPort?: string | null;
+  /** @nullable */
+  description?: string | null;
+}
+
+export interface ReviewRequestBody {
+  status: string;
+  /** @nullable */
+  adminNotes?: string | null;
+}
+
 export type ListVmsParams = {
   /**
    * @nullable
@@ -310,4 +381,9 @@ export type ListVmsParams = {
    * @nullable
    */
   status?: string | null;
+};
+
+export type ListRequestsParams = {
+  status?: string;
+  requestType?: string;
 };
