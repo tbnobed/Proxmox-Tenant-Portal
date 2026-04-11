@@ -52,7 +52,11 @@ export default function VmConsolePage() {
       const result = await consoleMutation.mutateAsync({ id });
       const base = import.meta.env.BASE_URL || "/";
       const vncTicket = (result as any).vncTicket || "";
-      const url = `${base}vnc.html?token=${result.token}&name=${encodeURIComponent(result.vmName)}&password=${encodeURIComponent(vncTicket)}&vmId=${id}`;
+      const cacheBust = `_t=${Date.now()}`;
+      const baseParams = `token=${result.token}&name=${encodeURIComponent(result.vmName)}&password=${encodeURIComponent(vncTicket)}&vmId=${id}&${cacheBust}`;
+      const embedUrl = `${base}vnc.html?${baseParams}&embed=1`;
+      const popupUrl = `${base}vnc.html?${baseParams}`;
+      const url = mode === "embed" ? embedUrl : popupUrl;
 
       if (mode === "tab") {
         window.open(url, `vnc-${id}`, "noopener");

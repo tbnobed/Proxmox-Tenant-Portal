@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VM Console</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -22,6 +25,7 @@
     #toolbar .spacer { flex: 1; }
     #toolbar .sep { width: 1px; height: 20px; background: #2a2a3e; flex-shrink: 0; }
 
+    .vm-controls { display: flex; align-items: center; gap: 6px; }
     .vm-status { display: flex; align-items: center; gap: 5px; font-size: 12px; padding: 0 6px; }
     .vm-status .sdot { width: 6px; height: 6px; border-radius: 50%; }
     .vm-status .sdot.running { background: #4ade80; }
@@ -31,7 +35,7 @@
     .tbtn {
       background: #2a2a3e; color: #ccc; border: 1px solid #3a3a4e; border-radius: 5px;
       padding: 4px 10px; cursor: pointer; font-size: 12px; white-space: nowrap;
-      display: flex; align-items: center; gap: 4px; transition: all 0.15s;
+      display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s;
     }
     .tbtn:hover { background: #3a3a4e; color: #fff; }
     .tbtn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -74,15 +78,16 @@
     <span class="info" id="statusText">Initializing...</span>
     <span class="spacer"></span>
 
-    <div class="vm-status" id="vmStatus" style="display:none">
-      <span class="sdot" id="vmStatusDot"></span>
-      <span id="vmStatusText"></span>
+    <div class="vm-controls" id="vmControls">
+      <div class="vm-status" id="vmStatus">
+        <span class="sdot other" id="vmStatusDot"></span>
+        <span id="vmStatusText">...</span>
+      </div>
+      <span class="sep"></span>
+      <button class="tbtn start" id="btnStart" style="display:none" onclick="vmAction('start')">&#9654; Start</button>
+      <button class="tbtn stop" id="btnStop" style="display:none" onclick="vmAction('stop')">&#9632; Stop</button>
+      <button class="tbtn reboot" id="btnReboot" style="display:none" onclick="vmAction('reboot')">&#8635; Reboot</button>
     </div>
-    <span class="sep" id="actionSep" style="display:none"></span>
-
-    <button class="tbtn start" id="btnStart" style="display:none" onclick="vmAction('start')">&#9654; Start</button>
-    <button class="tbtn stop" id="btnStop" style="display:none" onclick="vmAction('stop')">&#9632; Stop</button>
-    <button class="tbtn reboot" id="btnReboot" style="display:none" onclick="vmAction('reboot')">&#8635; Reboot</button>
 
     <span class="sep"></span>
     <button class="tbtn cad" onclick="sendCtrlAltDel()">Ctrl+Alt+Del</button>
@@ -100,12 +105,16 @@
     const vmName = decodeURIComponent(params.get("name") || "VM");
     const vncPassword = params.get("password") || "";
     const vmId = params.get("vmId");
+    const embed = params.get("embed") === "1";
 
     document.getElementById("vmTitle").textContent = vmName + " Console";
     document.title = vmName + " - Console";
 
+    if (embed) {
+      document.getElementById("vmControls").style.display = "none";
+    }
+
     let currentVmStatus = null;
-    const isEmbedded = window.self !== window.top;
 
     function showError(msg) {
       document.getElementById("loading").style.display = "none";
@@ -119,35 +128,23 @@
     }
 
     function updateVmStatus(status) {
+      if (embed) return;
       currentVmStatus = status;
-      const statusEl = document.getElementById("vmStatus");
       const dotEl = document.getElementById("vmStatusDot");
       const textEl = document.getElementById("vmStatusText");
-      const sepEl = document.getElementById("actionSep");
       const btnStart = document.getElementById("btnStart");
       const btnStop = document.getElementById("btnStop");
       const btnReboot = document.getElementById("btnReboot");
 
-      if (isEmbedded) {
-        statusEl.style.display = "none";
-        sepEl.style.display = "none";
-        btnStart.style.display = "none";
-        btnStop.style.display = "none";
-        btnReboot.style.display = "none";
-        return;
-      }
-
-      statusEl.style.display = "flex";
-      sepEl.style.display = "block";
       dotEl.className = "sdot " + (status === "running" ? "running" : status === "stopped" ? "stopped" : "other");
       textEl.textContent = status.charAt(0).toUpperCase() + status.slice(1);
 
       if (status === "running") {
         btnStart.style.display = "none";
-        btnStop.style.display = "flex";
-        btnReboot.style.display = "flex";
+        btnStop.style.display = "inline-flex";
+        btnReboot.style.display = "inline-flex";
       } else if (status === "stopped") {
-        btnStart.style.display = "flex";
+        btnStart.style.display = "inline-flex";
         btnStop.style.display = "none";
         btnReboot.style.display = "none";
       } else {
@@ -157,15 +154,29 @@
       }
     }
 
+    function getApiBase() {
+      const path = window.location.pathname;
+      const idx = path.indexOf("/vnc.html");
+      if (idx > 0) {
+        const prefix = path.substring(0, idx);
+        return prefix + "/api";
+      }
+      return "/api";
+    }
+
+    const apiBase = getApiBase();
+
     async function fetchVmStatus() {
-      if (!vmId) return;
+      if (!vmId || embed) return;
       try {
-        const res = await fetch(`/api/vms/${vmId}`, { credentials: "include" });
+        const res = await fetch(`${apiBase}/vms/${vmId}`, { credentials: "include" });
         if (res.ok) {
           const vm = await res.json();
           updateVmStatus(vm.status);
         }
-      } catch {}
+      } catch (e) {
+        console.warn("Failed to fetch VM status:", e);
+      }
     }
 
     window.vmAction = async function(action) {
@@ -175,7 +186,7 @@
       if (btn) { btn.disabled = true; btn.textContent = action === "start" ? "Starting..." : action === "stop" ? "Stopping..." : "Rebooting..."; }
 
       try {
-        const res = await fetch(`/api/vms/${vmId}/action`, {
+        const res = await fetch(`${apiBase}/vms/${vmId}/action`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -198,7 +209,7 @@
       }
     };
 
-    if (vmId) {
+    if (vmId && !embed) {
       fetchVmStatus();
       setInterval(fetchVmStatus, 5000);
     }
