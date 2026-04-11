@@ -155,8 +155,8 @@ router.post("/requests/:id/review", requireAdmin, async (req, res): Promise<void
     return;
   }
 
-  if (!["approved", "denied"].includes(body.data.status)) {
-    res.status(400).json({ error: "Status must be 'approved' or 'denied'" });
+  if (!["approved", "denied", "completed"].includes(body.data.status)) {
+    res.status(400).json({ error: "Status must be 'approved', 'denied', or 'completed'" });
     return;
   }
 
@@ -176,7 +176,12 @@ router.post("/requests/:id/review", requireAdmin, async (req, res): Promise<void
     return;
   }
 
-  if (existing.status !== "pending") {
+  if (body.data.status === "completed" && existing.status !== "approved") {
+    res.status(400).json({ error: "Only approved requests can be marked as completed" });
+    return;
+  }
+
+  if (["approved", "denied"].includes(body.data.status) && existing.status !== "pending") {
     res.status(400).json({ error: "Request has already been reviewed" });
     return;
   }
@@ -185,7 +190,7 @@ router.post("/requests/:id/review", requireAdmin, async (req, res): Promise<void
     .update(infrastructureRequestsTable)
     .set({
       status: body.data.status,
-      adminNotes: body.data.adminNotes ?? null,
+      adminNotes: body.data.adminNotes ?? existing.adminNotes,
       reviewedById: sessionUser!.userId,
       reviewedByName: adminUser?.fullName || adminUser?.username || "Admin",
       reviewedAt: new Date(),
@@ -194,6 +199,37 @@ router.post("/requests/:id/review", requireAdmin, async (req, res): Promise<void
     .returning();
 
   res.json(formatRequest(updated));
+
+  if (existing.requestedById) {
+    const [requester] = await db.select().from(usersTable).where(eq(usersTable.id, existing.requestedById));
+    if (requester?.email) {
+      const reviewerName = adminUser?.fullName || adminUser?.username || "Admin";
+      if (body.data.status === "completed") {
+        import("../notifications").then(({ notifyRequestCompleted }) => {
+          notifyRequestCompleted(
+            requester.email!,
+            existing.requestType,
+            existing.vmName,
+            existing.clusterName,
+            reviewerName,
+            body.data.adminNotes ?? null
+          ).catch(() => {});
+        });
+      } else {
+        import("../notifications").then(({ notifyRequestReviewed }) => {
+          notifyRequestReviewed(
+            requester.email!,
+            body.data.status as "approved" | "denied",
+            existing.requestType,
+            existing.vmName,
+            existing.clusterName,
+            reviewerName,
+            body.data.adminNotes ?? null
+          ).catch(() => {});
+        });
+      }
+    }
+  }
 });
 
 export default router;

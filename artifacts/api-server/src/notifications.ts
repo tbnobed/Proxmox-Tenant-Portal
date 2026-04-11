@@ -108,6 +108,57 @@ export async function notifyAccessChange(
   await sendEmailToAdmins(`Access ${label}: ${targetName} → ${vmName}`, wrapHtml(`Access ${type.charAt(0).toUpperCase() + type.slice(1)}`, body));
 }
 
+export async function notifyRequestReviewed(
+  recipientEmail: string,
+  status: "approved" | "denied",
+  requestType: string,
+  vmName: string,
+  clusterName: string,
+  reviewerName: string,
+  adminNotes: string | null
+): Promise<void> {
+  const isApproved = status === "approved";
+  const statusColor = isApproved ? "#22c55e" : "#ef4444";
+  const statusLabel = isApproved ? "Approved" : "Denied";
+  const typeLabel = requestType === "firewall" ? "Firewall Rule" : "Proxy Host";
+  const body = `
+    <p style="margin:0 0 12px;">Your infrastructure request has been reviewed:</p>
+    <table style="width:100%;border-collapse:collapse;">
+      <tr><td style="padding:6px 0;color:#888;width:120px;">Decision</td><td style="padding:6px 0;"><span style="color:${statusColor};font-weight:700;text-transform:uppercase;">${statusLabel}</span></td></tr>
+      <tr><td style="padding:6px 0;color:#888;">Type</td><td style="padding:6px 0;color:#ccc;">${typeLabel}</td></tr>
+      <tr><td style="padding:6px 0;color:#888;">VM</td><td style="padding:6px 0;color:#E6CAA7;font-weight:600;">${vmName}</td></tr>
+      <tr><td style="padding:6px 0;color:#888;">Cluster</td><td style="padding:6px 0;color:#ccc;">${clusterName}</td></tr>
+      <tr><td style="padding:6px 0;color:#888;">Reviewed by</td><td style="padding:6px 0;color:#ccc;">${reviewerName}</td></tr>
+      ${adminNotes ? `<tr><td style="padding:6px 0;color:#888;">Notes</td><td style="padding:6px 0;color:#ccc;">${adminNotes}</td></tr>` : ""}
+      <tr><td style="padding:6px 0;color:#888;">Time</td><td style="padding:6px 0;color:#ccc;">${new Date().toLocaleString()}</td></tr>
+    </table>`;
+  await sendEmail(recipientEmail, `Request ${statusLabel}: ${typeLabel} — ${vmName}`, wrapHtml(`Request ${statusLabel}`, body));
+}
+
+export async function notifyRequestCompleted(
+  recipientEmail: string,
+  requestType: string,
+  vmName: string,
+  clusterName: string,
+  completedByName: string,
+  adminNotes: string | null
+): Promise<void> {
+  const typeLabel = requestType === "firewall" ? "Firewall Rule" : "Proxy Host";
+  const body = `
+    <p style="margin:0 0 12px;">Your infrastructure request has been completed:</p>
+    <table style="width:100%;border-collapse:collapse;">
+      <tr><td style="padding:6px 0;color:#888;width:120px;">Status</td><td style="padding:6px 0;"><span style="color:#22c55e;font-weight:700;">COMPLETED</span></td></tr>
+      <tr><td style="padding:6px 0;color:#888;">Type</td><td style="padding:6px 0;color:#ccc;">${typeLabel}</td></tr>
+      <tr><td style="padding:6px 0;color:#888;">VM</td><td style="padding:6px 0;color:#E6CAA7;font-weight:600;">${vmName}</td></tr>
+      <tr><td style="padding:6px 0;color:#888;">Cluster</td><td style="padding:6px 0;color:#ccc;">${clusterName}</td></tr>
+      <tr><td style="padding:6px 0;color:#888;">Completed by</td><td style="padding:6px 0;color:#ccc;">${completedByName}</td></tr>
+      ${adminNotes ? `<tr><td style="padding:6px 0;color:#888;">Notes</td><td style="padding:6px 0;color:#ccc;">${adminNotes}</td></tr>` : ""}
+      <tr><td style="padding:6px 0;color:#888;">Time</td><td style="padding:6px 0;color:#ccc;">${new Date().toLocaleString()}</td></tr>
+    </table>
+    <p style="margin:12px 0 0;color:#888;font-size:12px;">The requested change is now live.</p>`;
+  await sendEmail(recipientEmail, `Request Completed: ${typeLabel} — ${vmName}`, wrapHtml("Request Completed", body));
+}
+
 export async function notifyInfrastructureRequest(
   requestType: string,
   priority: string,

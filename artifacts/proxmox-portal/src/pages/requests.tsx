@@ -61,6 +61,7 @@ function StatusBadge({ status }: { status: string }) {
     pending: { icon: Clock, class: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" },
     approved: { icon: CheckCircle2, class: "bg-green-500/15 text-green-400 border-green-500/30" },
     denied: { icon: XCircle, class: "bg-red-500/15 text-red-400 border-red-500/30" },
+    completed: { icon: CheckCircle2, class: "bg-cyan-500/15 text-cyan-400 border-cyan-500/30" },
   };
   const c = config[status] || config.pending;
   const Icon = c.icon;
@@ -120,6 +121,8 @@ export default function RequestsPage() {
 
   const [reviewDialog, setReviewDialog] = useState<number | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
+  const [completeDialog, setCompleteDialog] = useState<number | null>(null);
+  const [completeNotes, setCompleteNotes] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   function updateForm(key: string, value: string) {
@@ -358,6 +361,7 @@ export default function RequestsPage() {
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="approved">Approved</SelectItem>
             <SelectItem value="denied">Denied</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
           </SelectContent>
         </Select>
         <Select value={filterType} onValueChange={setFilterType}>
@@ -414,6 +418,17 @@ export default function RequestsPage() {
                   >
                     <Eye className="w-3.5 h-3.5 mr-1" />
                     Review
+                  </Button>
+                )}
+                {isAdmin && req.status === "approved" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10"
+                    onClick={(e) => { e.stopPropagation(); setCompleteDialog(req.id); }}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                    Mark Complete
                   </Button>
                 )}
                 {expandedId === req.id ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
@@ -547,6 +562,53 @@ export default function RequestsPage() {
                 Deny
               </Button>
               <Button variant="outline" onClick={() => { setReviewDialog(null); setReviewNotes(""); }}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={completeDialog !== null} onOpenChange={() => { setCompleteDialog(null); setCompleteNotes(""); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mark as Complete</DialogTitle>
+            <DialogDescription>Confirm that this infrastructure change has been implemented.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Completion Notes (optional)</Label>
+              <textarea
+                className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={completeNotes}
+                onChange={(e) => setCompleteNotes(e.target.value)}
+                placeholder="Any notes about the implementation..."
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <Button
+                className="bg-cyan-600 hover:bg-cyan-700"
+                onClick={async () => {
+                  if (completeDialog === null) return;
+                  try {
+                    await reviewMutation.mutateAsync({
+                      id: completeDialog,
+                      data: { status: "completed", adminNotes: completeNotes || null },
+                    });
+                    toast({ title: "Request completed", description: "The request has been marked as completed and the user has been notified." });
+                    setCompleteDialog(null);
+                    setCompleteNotes("");
+                    refetch();
+                  } catch (err: any) {
+                    toast({ title: "Error", description: err?.data?.error || "Failed to complete request", variant: "destructive" });
+                  }
+                }}
+                disabled={reviewMutation.isPending}
+              >
+                <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                Mark Complete
+              </Button>
+              <Button variant="outline" onClick={() => { setCompleteDialog(null); setCompleteNotes(""); }}>
                 Cancel
               </Button>
             </div>
