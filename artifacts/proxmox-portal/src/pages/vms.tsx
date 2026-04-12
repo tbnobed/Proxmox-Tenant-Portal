@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   useListVms,
   useListClusters,
@@ -11,12 +11,13 @@ import {
 import type { Vm } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Monitor, Play, Square, RotateCcw, Trash2, Plus } from "lucide-react";
+import { Monitor, Play, Square, RotateCcw, Trash2, Plus, CheckSquare, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { computeVmHealth, getHealthResult } from "@/lib/health";
@@ -48,6 +49,9 @@ export default function VmsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [deleteVm, setDeleteVm] = useState<Vm | null>(null);
   const [actioningId, setActioningId] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkAction, setBulkAction] = useState<string | null>(null);
+  const [bulkProgress, setBulkProgress] = useState<{ total: number; done: number; errors: number } | null>(null);
 
   const params: Record<string, number | string> = {};
   if (clusterFilter !== "all") params.clusterId = parseInt(clusterFilter, 10);
@@ -84,15 +88,87 @@ export default function VmsPage() {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: getListVmsQueryKey() });
         setDeleteVm(null);
+        setSelectedIds(prev => { const next = new Set(prev); next.delete(deleteVm.id); return next; });
         toast({ title: "VM removed" });
       },
       onError: () => toast({ title: "Error", variant: "destructive" }),
     });
   }
 
+  function toggleSelect(id: number) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (!vms) return;
+    if (selectedIds.size === vms.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(vms.map(v => v.id)));
+    }
+  }
+
+  const handleBulkAction = useCallback(async (action: string) => {
+    if (!vms || selectedIds.size === 0) return;
+
+    const targetVms = vms.filter(v => selectedIds.has(v.id));
+    const applicable = targetVms.filter(v => {
+      if (action === "start") return v.status !== "running";
+      if (action === "stop" || action === "reboot") return v.status === "running";
+      return false;
+    });
+
+    if (applicable.length === 0) {
+      toast({ title: "No applicable VMs", description: `None of the selected VMs can be ${action === "start" ? "started" : action === "stop" ? "stopped" : "rebooted"}.`, variant: "destructive" });
+      return;
+    }
+
+    const label = action === "start" ? "Start" : action === "stop" ? "Stop" : "Reboot";
+    if (!confirm(`${label} ${applicable.length} VM${applicable.length > 1 ? "s" : ""}?`)) return;
+
+    setBulkAction(action);
+    setBulkProgress({ total: applicable.length, done: 0, errors: 0 });
+
+    let done = 0;
+    let errors = 0;
+
+    for (const vm of applicable) {
+      try {
+        await actionMutation.mutateAsync({ id: vm.id, data: { action } });
+      } catch {
+        errors++;
+      }
+      done++;
+      setBulkProgress({ total: applicable.length, done, errors });
+    }
+
+    qc.invalidateQueries({ queryKey: getListVmsQueryKey() });
+    qc.invalidateQueries({ queryKey: getGetDashboardStatsQueryKey() });
+
+    if (errors === 0) {
+      toast({ title: `${label} complete`, description: `${done} VM${done > 1 ? "s" : ""} ${action === "start" ? "started" : action === "stop" ? "stopped" : "rebooted"} successfully.` });
+    } else {
+      toast({ title: `${label} finished with errors`, description: `${done - errors} succeeded, ${errors} failed.`, variant: "destructive" });
+    }
+
+    setBulkAction(null);
+    setBulkProgress(null);
+    setSelectedIds(new Set());
+  }, [vms, selectedIds, actionMutation, qc, toast]);
+
   const { user } = useAuth();
   const canCreate = user?.role === "admin" || user?.role === "operator";
+  const canAct = user?.role === "admin" || user?.role === "operator";
   const hasFilters = clusterFilter !== "all" || tenantFilter !== "all" || statusFilter !== "all";
+  const allSelected = !!vms && vms.length > 0 && selectedIds.size === vms.length;
+  const someSelected = selectedIds.size > 0;
+
+  const selectedRunning = vms?.filter(v => selectedIds.has(v.id) && v.status === "running").length ?? 0;
+  const selectedStopped = vms?.filter(v => selectedIds.has(v.id) && v.status !== "running").length ?? 0;
 
   return (
     <div className="space-y-6 min-w-0">
@@ -110,7 +186,6 @@ export default function VmsPage() {
         )}
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <Select value={clusterFilter} onValueChange={setClusterFilter}>
           <SelectTrigger className="w-40 h-8 text-xs">
@@ -148,7 +223,45 @@ export default function VmsPage() {
         )}
       </div>
 
-      {/* Table */}
+      {canAct && someSelected && (
+        <div className="flex items-center gap-3 rounded-lg border border-olive/30 bg-olive/5 px-4 py-2.5">
+          <CheckSquare className="w-4 h-4 text-olive shrink-0" />
+          <span className="text-sm text-foreground font-medium">{selectedIds.size} VM{selectedIds.size > 1 ? "s" : ""} selected</span>
+          <div className="flex items-center gap-2 ml-auto">
+            {bulkProgress ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>{bulkProgress.done}/{bulkProgress.total} {bulkAction === "start" ? "starting" : bulkAction === "stop" ? "stopping" : "rebooting"}...</span>
+              </div>
+            ) : (
+              <>
+                {selectedStopped > 0 && (
+                  <Button size="sm" variant="outline" onClick={() => handleBulkAction("start")} className="gap-1.5 text-xs">
+                    <Play className="w-3.5 h-3.5 text-olive" />
+                    Start ({selectedStopped})
+                  </Button>
+                )}
+                {selectedRunning > 0 && (
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => handleBulkAction("stop")} className="gap-1.5 text-xs">
+                      <Square className="w-3.5 h-3.5 text-red-400" />
+                      Stop ({selectedRunning})
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => handleBulkAction("reboot")} className="gap-1.5 text-xs">
+                      <RotateCcw className="w-3.5 h-3.5 text-sand" />
+                      Reboot ({selectedRunning})
+                    </Button>
+                  </>
+                )}
+              </>
+            )}
+            <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())} className="text-xs">
+              Clear
+            </Button>
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
@@ -163,6 +276,15 @@ export default function VmsPage() {
           <table className="w-full text-sm min-w-[500px]">
             <thead>
               <tr className="border-b border-border">
+                {canAct && (
+                  <th className="w-10 px-3 py-2.5">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Select all"
+                    />
+                  </th>
+                )}
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Name</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground hidden md:table-cell">Cluster</th>
@@ -173,7 +295,22 @@ export default function VmsPage() {
             </thead>
             <tbody>
               {vms.map(vm => (
-                <tr key={vm.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                <tr
+                  key={vm.id}
+                  className={cn(
+                    "border-b border-border last:border-0 hover:bg-muted/20 transition-colors",
+                    selectedIds.has(vm.id) && "bg-olive/5"
+                  )}
+                >
+                  {canAct && (
+                    <td className="w-10 px-3 py-3">
+                      <Checkbox
+                        checked={selectedIds.has(vm.id)}
+                        onCheckedChange={() => toggleSelect(vm.id)}
+                        aria-label={`Select ${vm.name}`}
+                      />
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <Link href={`/vms/${vm.id}`} className="font-medium text-foreground hover:text-primary transition-colors">
                       {vm.name}
@@ -200,7 +337,7 @@ export default function VmsPage() {
                           variant="ghost"
                           size="sm"
                           className="h-7 w-7 p-0"
-                          disabled={actioningId === vm.id}
+                          disabled={actioningId === vm.id || !!bulkAction}
                           onClick={() => handleAction(vm, "start")}
                           title="Start"
                         >
@@ -213,7 +350,7 @@ export default function VmsPage() {
                             variant="ghost"
                             size="sm"
                             className="h-7 w-7 p-0"
-                            disabled={actioningId === vm.id}
+                            disabled={actioningId === vm.id || !!bulkAction}
                             onClick={() => handleAction(vm, "stop")}
                             title="Stop"
                           >
@@ -223,7 +360,7 @@ export default function VmsPage() {
                             variant="ghost"
                             size="sm"
                             className="h-7 w-7 p-0"
-                            disabled={actioningId === vm.id}
+                            disabled={actioningId === vm.id || !!bulkAction}
                             onClick={() => handleAction(vm, "reboot")}
                             title="Reboot"
                           >
