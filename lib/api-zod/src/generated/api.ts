@@ -220,6 +220,7 @@ export const ListUsersResponseItem = zod.object({
   tenantName: zod.string().nullish(),
   status: zod.string(),
   vmCount: zod.number(),
+  lastLoginAt: zod.string().nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -254,6 +255,7 @@ export const GetUserResponse = zod.object({
   tenantName: zod.string().nullish(),
   status: zod.string(),
   vmCount: zod.number(),
+  lastLoginAt: zod.string().nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -285,9 +287,19 @@ export const UpdateUserResponse = zod.object({
   tenantName: zod.string().nullish(),
   status: zod.string(),
   vmCount: zod.number(),
+  lastLoginAt: zod.string().nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
+
+export const UserSessionItem = zod.object({
+  id: zod.number(),
+  loginAt: zod.string(),
+  logoutAt: zod.string().nullish(),
+  ipAddress: zod.string().nullish(),
+  userAgent: zod.string().nullish(),
+});
+export const ListUserSessionsResponse = zod.array(UserSessionItem);
 
 /**
  * @summary Delete a user

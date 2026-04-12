@@ -114,6 +114,8 @@ export interface User {
   tenantName?: string | null;
   status: string;
   vmCount: number;
+  /** @nullable */
+  lastLoginAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -387,4 +389,12 @@ export type ListVmsParams = {
 export type ListRequestsParams = {
   status?: string;
   requestType?: string;
+};
+
+export type UserSessionItem = {
+  id: number;
+  loginAt: string;
+  logoutAt?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
 };

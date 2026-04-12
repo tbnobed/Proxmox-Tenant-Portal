@@ -22,6 +22,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
+function formatRelative(dateStr: string | null | undefined): string {
+  if (!dateStr) return "Never";
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDays = Math.floor(diffHr / 24);
+  if (diffDays < 30) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
+
 function RoleBadge({ role }: { role: string }) {
   const map: Record<string, string> = {
     admin: "bg-olive/15 text-sand border-olive/20",
@@ -347,6 +362,10 @@ export default function UsersPage() {
                   {u.tenantName && <span className="text-xs text-muted-foreground">{u.tenantName}</span>}
                   <span className="text-xs text-muted-foreground flex items-center gap-1">
                     <Monitor className="w-3 h-3" /> {u.vmCount} VMs
+                  </span>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {u.lastLoginAt ? `Last login ${formatRelative(u.lastLoginAt)}` : "Never logged in"}
                   </span>
                 </div>
               </div>

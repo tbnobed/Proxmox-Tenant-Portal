@@ -42,6 +42,7 @@ import type {
   UpdateUserBody,
   UpdateVmBody,
   User,
+  UserSessionItem,
   UserVmAccess,
   Vm,
   VmActionBody,
@@ -3116,3 +3117,59 @@ export const useReviewRequest = <
 > => {
   return useMutation(getReviewRequestMutationOptions(options));
 };
+
+export const getListUserSessionsUrl = (id: number) => {
+  return `/api/users/${id}/sessions`;
+};
+
+export const listUserSessions = async (
+  id: number,
+  options?: RequestInit,
+): Promise<UserSessionItem[]> => {
+  return customFetch<UserSessionItem[]>(getListUserSessionsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListUserSessionsQueryKey = (id: number) => {
+  return [`/api/users/${id}/sessions`] as const;
+};
+
+export const getListUserSessionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listUserSessions>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listUserSessions>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getListUserSessionsQueryKey(id);
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listUserSessions>>> = ({ signal }) =>
+    listUserSessions(id, { signal, ...requestOptions });
+  return { queryKey, queryFn, enabled: !!id, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listUserSessions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export function useListUserSessions<
+  TData = Awaited<ReturnType<typeof listUserSessions>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listUserSessions>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListUserSessionsQueryOptions(id, options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+  return { ...query, queryKey: queryOptions.queryKey };
+}

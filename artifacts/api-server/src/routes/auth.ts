@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import crypto from "node:crypto";
-import { db, usersTable, tenantsTable } from "@workspace/db";
+import { db, usersTable, tenantsTable, userSessionsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -63,9 +63,22 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     await db.update(usersTable).set({ passwordHash: hashed }).where(eq(usersTable.id, user.id));
   }
 
+  const now = new Date();
+  await db.update(usersTable).set({ lastLoginAt: now }).where(eq(usersTable.id, user.id));
+
+  const ipAddress = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
+  const userAgent = req.headers["user-agent"] || null;
+  const [session] = await db.insert(userSessionsTable).values({
+    userId: user.id,
+    loginAt: now,
+    ipAddress,
+    userAgent,
+  }).returning();
+
   (req.session as any).userId = user.id;
   (req.session as any).userRole = user.role;
   (req.session as any).tenantId = user.tenantId;
+  (req.session as any).sessionRecordId = session.id;
 
   res.json({
     id: user.id,
@@ -76,7 +89,11 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   });
 });
 
-router.post("/auth/logout", (req, res): void => {
+router.post("/auth/logout", async (req, res): Promise<void> => {
+  const sessionRecordId = (req.session as any)?.sessionRecordId;
+  if (sessionRecordId) {
+    await db.update(userSessionsTable).set({ logoutAt: new Date() }).where(eq(userSessionsTable.id, sessionRecordId));
+  }
   req.session.destroy(() => {
     res.clearCookie("connect.sid");
     res.json({ ok: true });

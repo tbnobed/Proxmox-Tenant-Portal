@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, sql } from "drizzle-orm";
-import { db, usersTable, tenantsTable, userVmAccessTable } from "@workspace/db";
+import { eq, sql, desc } from "drizzle-orm";
+import { db, usersTable, tenantsTable, userVmAccessTable, userSessionsTable } from "@workspace/db";
 import { createHashedPassword } from "./auth";
 import {
   CreateUserBody,
@@ -11,6 +11,7 @@ import {
   ListUsersResponse,
   GetUserResponse,
   UpdateUserResponse,
+  ListUserSessionsResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -30,6 +31,7 @@ router.get("/users", async (_req, res): Promise<void> => {
     fullName: u.fullName,
     tenantName: u.tenantId ? tenantMap[u.tenantId] ?? null : null,
     vmCount: vcMap[u.id] ?? 0,
+    lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
     createdAt: u.createdAt.toISOString(),
     updatedAt: u.updatedAt.toISOString(),
   }));
@@ -54,6 +56,7 @@ router.post("/users", async (req, res): Promise<void> => {
     ...user,
     tenantName: tenant[0]?.name ?? null,
     vmCount: 0,
+    lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   }));
@@ -81,9 +84,37 @@ router.get("/users/:id", async (req, res): Promise<void> => {
     ...user,
     tenantName: tenant[0]?.name ?? null,
     vmCount: vc?.count ?? 0,
+    lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   }));
+});
+
+router.get("/users/:id/sessions", async (req, res): Promise<void> => {
+  const params = GetUserParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, params.data.id));
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  const sessions = await db
+    .select()
+    .from(userSessionsTable)
+    .where(eq(userSessionsTable.userId, params.data.id))
+    .orderBy(desc(userSessionsTable.loginAt))
+    .limit(50);
+
+  res.json(ListUserSessionsResponse.parse(sessions.map(s => ({
+    id: s.id,
+    loginAt: s.loginAt.toISOString(),
+    logoutAt: s.logoutAt?.toISOString() ?? null,
+    ipAddress: s.ipAddress,
+    userAgent: s.userAgent,
+  }))));
 });
 
 router.patch("/users/:id", async (req, res): Promise<void> => {
@@ -118,6 +149,7 @@ router.patch("/users/:id", async (req, res): Promise<void> => {
     ...user,
     tenantName: tenant[0]?.name ?? null,
     vmCount: vc?.count ?? 0,
+    lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   }));
