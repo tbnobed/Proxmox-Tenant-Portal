@@ -1,11 +1,19 @@
 import { useParams, Link } from "wouter";
 import { useGetVm, useVmConsole, useVmAction, getGetVmQueryKey, getListVmsQueryKey } from "@workspace/api-client-react";
-import { ArrowLeft, Monitor, Loader2, AlertCircle, ExternalLink, Play, Square, RotateCcw } from "lucide-react";
+import { ArrowLeft, Monitor, Loader2, AlertCircle, ExternalLink, Play, Square, RotateCcw, Disc, CircleSlash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+
+const BASE = import.meta.env.BASE_URL ?? "/";
+
+interface MountedMedia {
+  drive: string;
+  media: string;
+}
 
 function StatusDot({ status }: { status: string }) {
   const color = status === "running" ? "bg-green-500" : status === "stopped" ? "bg-red-500" : "bg-yellow-500";
@@ -26,6 +34,43 @@ export default function VmConsolePage() {
   const [iframeUrl, setIframeUrl] = useState<string | null>(null);
   const [actioning, setActioning] = useState<string | null>(null);
   const popupRef = useRef<Window | null>(null);
+  const { user } = useAuth();
+  const canManage = user?.role === "admin" || user?.role === "operator";
+  const [media, setMedia] = useState<MountedMedia[]>([]);
+  const [ejecting, setEjecting] = useState<string | null>(null);
+
+  const fetchMedia = useCallback(() => {
+    if (!id) return;
+    fetch(`${BASE}api/vms/${id}/media`, { credentials: "include" })
+      .then(r => r.ok ? r.json() : [])
+      .then(setMedia)
+      .catch(() => setMedia([]));
+  }, [id]);
+
+  useEffect(() => {
+    if (vm?.type === "qemu") fetchMedia();
+  }, [vm?.type, fetchMedia]);
+
+  function handleEject(drive: string) {
+    if (!confirm(`Eject media from ${drive.toUpperCase()}? The VM will no longer boot from this disc.`)) return;
+    setEjecting(drive);
+    fetch(`${BASE}api/vms/${id}/media/${drive}/unmount`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          toast({ title: data.message });
+          fetchMedia();
+        } else {
+          toast({ title: "Error", description: data.error, variant: "destructive" });
+        }
+      })
+      .catch(e => toast({ title: "Error", description: e.message, variant: "destructive" }))
+      .finally(() => setEjecting(null));
+  }
 
   useEffect(() => {
     if (!vm || !popupRef.current || popupRef.current.closed) return;
@@ -162,6 +207,34 @@ export default function VmConsolePage() {
                   <RotateCcw className="w-3.5 h-3.5 text-sand" />
                   {actioning === "reboot" ? "Rebooting..." : "Reboot"}
                 </Button>
+              </>
+            )}
+
+            {canManage && media.length > 0 && (
+              <>
+                <div className="w-px h-6 bg-border mx-1" />
+                {media.map(m => {
+                  const isoMatch = m.media.match(/([^/]+\.iso)/i);
+                  const label = isoMatch ? isoMatch[1] : m.drive;
+                  return (
+                    <Button
+                      key={m.drive}
+                      size="sm"
+                      variant="outline"
+                      disabled={!!ejecting}
+                      onClick={() => handleEject(m.drive)}
+                      className="gap-1.5 text-xs"
+                      title={`Eject ${m.media}`}
+                    >
+                      {ejecting === m.drive ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Disc className="w-3.5 h-3.5 text-sand" />
+                      )}
+                      {ejecting === m.drive ? "Ejecting..." : `Eject ${label}`}
+                    </Button>
+                  );
+                })}
               </>
             )}
 
