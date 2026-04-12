@@ -346,6 +346,53 @@ export async function rollbackSnapshot(
   return apiPost<string>(host, port, path, auth);
 }
 
+export interface VmMountedMedia {
+  drive: string;
+  media: string;
+}
+
+export async function getVmMedia(
+  host: string,
+  port: number,
+  username: string,
+  password: string,
+  realm: string,
+  node: string,
+  vmId: number,
+  type: string
+): Promise<VmMountedMedia[]> {
+  const auth = await authenticate(host, port, username, password, realm);
+  const vmType = type === "lxc" ? "lxc" : "qemu";
+  const path = `/api2/json/nodes/${node}/${vmType}/${vmId}/config`;
+  const config = await apiGet<Record<string, unknown>>(host, port, path, auth);
+  const media: VmMountedMedia[] = [];
+  for (const [key, val] of Object.entries(config)) {
+    if (typeof val !== "string") continue;
+    if (val.includes("media=cdrom") && !val.startsWith("none")) {
+      media.push({ drive: key, media: val });
+    }
+  }
+  return media;
+}
+
+export async function unmountMedia(
+  host: string,
+  port: number,
+  username: string,
+  password: string,
+  realm: string,
+  node: string,
+  vmId: number,
+  type: string,
+  drive: string
+): Promise<void> {
+  const auth = await authenticate(host, port, username, password, realm);
+  const vmType = type === "lxc" ? "lxc" : "qemu";
+  const path = `/api2/json/nodes/${node}/${vmType}/${vmId}/config`;
+  const body = `${encodeURIComponent(drive)}=${encodeURIComponent("none,media=cdrom")}`;
+  await apiPost<unknown>(host, port, path, auth, body);
+}
+
 export interface NodeStatus {
   node: string;
   status: string;

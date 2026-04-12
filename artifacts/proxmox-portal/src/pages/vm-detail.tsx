@@ -8,7 +8,7 @@ import {
   getGetDashboardStatsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Play, Square, RotateCcw, Cpu, MemoryStick, HardDrive, Network, Server, Building2, Monitor, Camera, Trash2, History, Plus, Loader2 } from "lucide-react";
+import { ArrowLeft, Play, Square, RotateCcw, Cpu, MemoryStick, HardDrive, Network, Server, Building2, Monitor, Camera, Trash2, History, Plus, Loader2, Disc, CircleSlash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
+
+interface MountedMedia {
+  drive: string;
+  media: string;
+}
 
 interface Snapshot {
   name: string;
@@ -39,6 +44,100 @@ function StatusBadge({ status }: { status: string }) {
     <span className={cn("text-xs px-2 py-0.5 rounded border font-medium", map[status] ?? "bg-muted text-muted-foreground border-border")}>
       {status}
     </span>
+  );
+}
+
+function MediaPanel({ vmId, vmType }: { vmId: number; vmType: string }) {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const canManage = user?.role === "admin" || user?.role === "operator";
+  const [media, setMedia] = useState<MountedMedia[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [ejecting, setEjecting] = useState<string | null>(null);
+
+  const fetchMedia = useCallback(() => {
+    setLoading(true);
+    fetch(`${BASE}api/vms/${vmId}/media`, { credentials: "include" })
+      .then(async r => {
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+        return r.json();
+      })
+      .then(setMedia)
+      .catch(() => setMedia([]))
+      .finally(() => setLoading(false));
+  }, [vmId]);
+
+  useEffect(() => {
+    if (vmType === "lxc") { setLoading(false); return; }
+    fetchMedia();
+  }, [fetchMedia, vmType]);
+
+  if (vmType === "lxc") return null;
+
+  function handleEject(drive: string) {
+    if (!confirm(`Eject media from ${drive.toUpperCase()}? The VM will no longer boot from this disc.`)) return;
+    setEjecting(drive);
+    fetch(`${BASE}api/vms/${vmId}/media/${drive}/unmount`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          toast({ title: data.message });
+          fetchMedia();
+        } else {
+          toast({ title: "Error", description: data.error, variant: "destructive" });
+        }
+      })
+      .catch(e => toast({ title: "Error", description: e.message, variant: "destructive" }))
+      .finally(() => setEjecting(null));
+  }
+
+  if (loading) return null;
+  if (media.length === 0) return null;
+
+  const extractIsoName = (val: string) => {
+    const match = val.match(/([^/]+\.iso)/i);
+    return match ? match[1] : val.split(",")[0];
+  };
+
+  return (
+    <div className="rounded-lg border border-border bg-card">
+      <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+        <Disc className="w-4 h-4 text-primary" />
+        <h2 className="text-sm font-semibold text-foreground">Mounted Media</h2>
+      </div>
+      <div className="divide-y divide-border">
+        {media.map(m => (
+          <div key={m.drive} className="px-4 py-3 flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase">{m.drive}</span>
+                <span className="text-sm text-foreground truncate">{extractIsoName(m.media)}</span>
+              </div>
+            </div>
+            {canManage && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!!ejecting}
+                onClick={() => handleEject(m.drive)}
+                title="Eject media"
+              >
+                {ejecting === m.drive ? (
+                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                ) : (
+                  <CircleSlash className="w-3.5 h-3.5 mr-1.5" />
+                )}
+                {ejecting === m.drive ? "Ejecting..." : "Eject"}
+              </Button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -427,6 +526,7 @@ export default function VmDetailPage() {
         </div>
       )}
 
+      {vm && <MediaPanel vmId={id} vmType={vm.type} />}
       {vm && <SnapshotsPanel vmId={id} vmType={vm.type} />}
     </div>
   );

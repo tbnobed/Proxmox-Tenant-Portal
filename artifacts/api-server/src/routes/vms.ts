@@ -15,7 +15,7 @@ import {
   UpdateVmResponse,
   VmActionResponse,
 } from "@workspace/api-zod";
-import { performVmAction, getVncTicket, authenticate, listSnapshots, createSnapshot, deleteSnapshot, rollbackSnapshot } from "../proxmox-client";
+import { performVmAction, getVncTicket, authenticate, listSnapshots, createSnapshot, deleteSnapshot, rollbackSnapshot, getVmMedia, unmountMedia } from "../proxmox-client";
 import { createVncSession } from "../vnc-proxy";
 import { getSessionUser } from "../middleware/auth";
 import { requireAdmin, requireOperatorOrAdmin } from "../middleware/auth";
@@ -521,6 +521,68 @@ router.delete("/vms/:id/snapshots/:snapname", requireOperatorOrAdmin, async (req
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
     res.status(502).json({ error: `Failed to delete snapshot: ${errMsg}` });
+  }
+});
+
+router.get("/vms/:id/media", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid VM id" }); return; }
+
+  const result = await getVmWithCluster(id);
+  if (!result) { res.status(404).json({ error: "VM or cluster not found" }); return; }
+  const { vm, cluster } = result;
+
+  const sessionUser = getSessionUser(req);
+  if (sessionUser && sessionUser.userRole !== "admin") {
+    const hasAccess = await canAccessVm(sessionUser.userId, sessionUser.tenantId, vm.id);
+    if (!hasAccess) { res.status(403).json({ error: "Access denied" }); return; }
+  }
+
+  try {
+    const media = await getVmMedia(
+      cluster.host, cluster.port, cluster.username, cluster.passwordHash,
+      cluster.realm, vm.node, vm.vmId, vm.type
+    );
+    res.json(media);
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    res.status(502).json({ error: `Failed to get media: ${errMsg}` });
+  }
+});
+
+router.post("/vms/:id/media/:drive/unmount", requireOperatorOrAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const drive = req.params.drive;
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid VM id" }); return; }
+  if (!/^(ide|sata|scsi)\d+$/.test(drive)) {
+    res.status(400).json({ error: "Invalid drive name" }); return;
+  }
+
+  const result = await getVmWithCluster(id);
+  if (!result) { res.status(404).json({ error: "VM or cluster not found" }); return; }
+  const { vm, cluster } = result;
+
+  const sessionUser = getSessionUser(req);
+  if (sessionUser && sessionUser.userRole !== "admin") {
+    const hasAccess = await canAccessVm(sessionUser.userId, sessionUser.tenantId, vm.id);
+    if (!hasAccess) { res.status(403).json({ error: "Access denied" }); return; }
+  }
+
+  try {
+    await unmountMedia(
+      cluster.host, cluster.port, cluster.username, cluster.passwordHash,
+      cluster.realm, vm.node, vm.vmId, vm.type, drive
+    );
+    await db.insert(activityTable).values({
+      eventType: "vm_media_unmount",
+      description: `Media unmounted from ${drive} on VM ${vm.name}`,
+      vmId: vm.id,
+      vmName: vm.name,
+    });
+    res.json({ success: true, message: `Media ejected from ${drive}` });
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    res.status(502).json({ error: `Failed to unmount media: ${errMsg}` });
   }
 });
 
