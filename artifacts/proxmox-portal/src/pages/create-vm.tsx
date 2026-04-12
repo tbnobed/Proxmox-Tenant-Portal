@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useListClusters, useListTenants, getListVmsQueryKey, getListClustersQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "wouter";
-import { ArrowLeft, Loader2, Server, Monitor, Box } from "lucide-react";
+import { useLocation, useSearch } from "wouter";
+import { ArrowLeft, Loader2, Server, Monitor, Box, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -92,6 +92,43 @@ export default function CreateVmPage() {
   const [startAfterCreate, setStartAfterCreate] = useState<boolean>(false);
   const [selectedTenantId, setSelectedTenantId] = useState<string>("");
   const [allowedClusterIds, setAllowedClusterIds] = useState<Set<number> | null>(null);
+  const [appliedTemplateName, setAppliedTemplateName] = useState<string | null>(null);
+
+  const searchString = useSearch();
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchString);
+    const tid = params.get("templateId");
+    if (!tid) {
+      setAppliedTemplateName(null);
+      return;
+    }
+    fetch(`${BASE}api/vm-templates/${tid}`, { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then(t => {
+        if (!t) {
+          setAppliedTemplateName(null);
+          toast({ title: "Template not found", description: "The selected template could not be loaded.", variant: "destructive" });
+          return;
+        }
+        setAppliedTemplateName(t.name);
+        if (t.type) setVmType(t.type);
+        if (t.cores != null) setCores(String(t.cores));
+        if (t.sockets != null) setSockets(String(t.sockets));
+        if (t.memory != null) setMemory(String(t.memory));
+        if (t.diskSize != null) setDiskSize(String(t.diskSize));
+        if (t.ostype) setOstype(t.ostype);
+        if (t.bridge) setBridge(t.bridge);
+        if (t.vlan != null) setVlan(String(t.vlan));
+        if (t.balloon != null) setBalloon(String(t.balloon));
+        if (t.storage) setStorage(t.storage);
+        if (t.iso) setIso(t.iso);
+        if (t.template) setTemplate(t.template);
+      })
+      .catch(() => {
+        setAppliedTemplateName(null);
+      });
+  }, [searchString]);
 
   const { data: tenants } = useListTenants();
 
@@ -290,6 +327,16 @@ export default function CreateVmPage() {
           <p className="text-sm text-muted-foreground mt-0.5">Provision a new VM or container on your Proxmox cluster</p>
         </div>
       </div>
+
+      {appliedTemplateName && (
+        <div className="flex items-center gap-2 rounded-lg border border-olive/30 bg-olive/5 px-4 py-2.5">
+          <Layers className="w-4 h-4 text-olive shrink-0" />
+          <p className="text-sm text-foreground">
+            Using template: <span className="font-medium text-sand">{appliedTemplateName}</span>
+          </p>
+          <span className="text-xs text-muted-foreground ml-1">— fields pre-filled, adjust as needed</span>
+        </div>
+      )}
 
       <div className="flex gap-2">
         <button

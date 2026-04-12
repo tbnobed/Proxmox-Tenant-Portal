@@ -6,3 +6,4 @@ export * from "./access";
 export * from "./activity";
 export * from "./tokens";
 export * from "./requests";
+export * from "./vm-templates";
