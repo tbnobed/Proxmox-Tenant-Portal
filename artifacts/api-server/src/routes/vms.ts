@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, sql, inArray, or } from "drizzle-orm";
-import { db, vmsTable, clustersTable, tenantsTable, activityTable, userVmAccessTable, tenantVmAccessTable } from "@workspace/db";
+import { db, vmsTable, clustersTable, tenantsTable, activityTable, userVmAccessTable, tenantVmAccessTable, tenantClusterAccessTable } from "@workspace/db";
 import {
   ListVmsQueryParams,
   CreateVmBody,
@@ -74,7 +74,25 @@ router.get("/vms", async (req, res): Promise<void> => {
 
   const conditions = [];
   if (query.data.clusterId != null) conditions.push(eq(vmsTable.clusterId, query.data.clusterId));
-  if (query.data.tenantId != null) conditions.push(eq(vmsTable.tenantId, query.data.tenantId));
+  if (query.data.tenantId != null) {
+    const tenantAccessRows = await db
+      .select({ vmId: tenantVmAccessTable.vmId })
+      .from(tenantVmAccessTable)
+      .where(eq(tenantVmAccessTable.tenantId, query.data.tenantId));
+    const tenantVmIds = tenantAccessRows.map(r => r.vmId);
+
+    const clusterAccessRows = await db
+      .select({ clusterId: tenantClusterAccessTable.clusterId })
+      .from(tenantClusterAccessTable)
+      .where(eq(tenantClusterAccessTable.tenantId, query.data.tenantId));
+    const tenantClusterIds = clusterAccessRows.map(r => r.clusterId);
+
+    const orConditions = [eq(vmsTable.tenantId, query.data.tenantId)];
+    if (tenantVmIds.length > 0) orConditions.push(inArray(vmsTable.id, tenantVmIds));
+    if (tenantClusterIds.length > 0) orConditions.push(inArray(vmsTable.clusterId, tenantClusterIds));
+
+    conditions.push(orConditions.length > 1 ? or(...orConditions)! : orConditions[0]);
+  }
   if (query.data.status != null) conditions.push(eq(vmsTable.status, query.data.status));
 
   if (!isAdmin && sessionUser) {
