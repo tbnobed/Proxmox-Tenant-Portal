@@ -47,6 +47,9 @@
     .tbtn.reboot:hover { background: #E6CAA722; color: #E6CAA7; }
     .tbtn.cad { background: #2563eb; color: white; border-color: #2563eb; }
     .tbtn.cad:hover { background: #1d4ed8; }
+    .tbtn.paste { border-color: #53561F66; }
+    .tbtn.paste:hover { background: #53561F33; color: #E6CAA7; }
+    .tbtn.paste.active { background: #53561F44; color: #E6CAA7; border-color: #53561F; }
 
     #screen { position: absolute; top: 42px; bottom: 0; left: 0; right: 0; }
     #error-msg {
@@ -64,10 +67,65 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    #pastePanel {
+      position: fixed; top: 42px; right: 0; width: 340px; bottom: 0;
+      background: #1a1a2e; border-left: 1px solid #2a2a3e;
+      z-index: 20; display: none; flex-direction: column;
+      box-shadow: -4px 0 20px rgba(0,0,0,0.4);
+    }
+    #pastePanel.open { display: flex; }
+    #pastePanel .panel-header {
+      padding: 12px 16px; border-bottom: 1px solid #2a2a3e;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    #pastePanel .panel-header h3 { color: #e0e0e0; font-size: 14px; font-weight: 600; }
+    #pastePanel .panel-header .close-btn {
+      background: none; border: none; color: #888; cursor: pointer; font-size: 18px; padding: 2px 6px;
+    }
+    #pastePanel .panel-header .close-btn:hover { color: #fff; }
+    #pastePanel .panel-body { padding: 16px; flex: 1; display: flex; flex-direction: column; gap: 12px; }
+    #pastePanel .hint { color: #888; font-size: 12px; line-height: 1.5; }
+    #pastePanel textarea {
+      flex: 1; min-height: 120px; background: #111; color: #e0e0e0;
+      border: 1px solid #2a2a3e; border-radius: 6px; padding: 10px;
+      font-family: 'Consolas', 'Monaco', monospace; font-size: 13px;
+      resize: none; outline: none;
+    }
+    #pastePanel textarea:focus { border-color: #53561F; }
+    #pastePanel textarea::placeholder { color: #555; }
+    #pastePanel .panel-footer { padding: 12px 16px; border-top: 1px solid #2a2a3e; display: flex; gap: 8px; }
+    #pastePanel .send-btn {
+      flex: 1; background: #53561F; color: #E6CAA7; border: none; border-radius: 5px;
+      padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 500;
+      transition: all 0.15s;
+    }
+    #pastePanel .send-btn:hover { background: #6a6d28; }
+    #pastePanel .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    #pastePanel .clear-btn {
+      background: #2a2a3e; color: #ccc; border: 1px solid #3a3a4e; border-radius: 5px;
+      padding: 8px 12px; cursor: pointer; font-size: 13px; transition: all 0.15s;
+    }
+    #pastePanel .clear-btn:hover { background: #3a3a4e; color: #fff; }
+
+    #pasteToast {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: #53561F; color: #E6CAA7; padding: 8px 20px; border-radius: 6px;
+      font-size: 13px; z-index: 30; display: none; white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    #pasteToast.show { display: block; animation: fadeInOut 2s ease; }
+    @keyframes fadeInOut {
+      0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+      15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+      85% { opacity: 1; transform: translateX(-50%) translateY(0); }
+      100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+    }
+
     @media (max-width: 700px) {
       #toolbar { padding: 6px 10px; gap: 4px; }
       .tbtn { padding: 3px 7px; font-size: 11px; }
       .vm-status { font-size: 11px; }
+      #pastePanel { width: 100%; }
     }
   </style>
 </head>
@@ -90,6 +148,8 @@
     </div>
 
     <span class="sep"></span>
+    <button class="tbtn paste" id="btnQuickPaste" onclick="quickPaste()" title="Paste clipboard text into VM (Ctrl+Shift+V)">&#128203; Paste</button>
+    <button class="tbtn paste" id="btnPastePanel" onclick="togglePastePanel()" title="Open paste panel for longer text">&#9998; Paste Panel</button>
     <button class="tbtn cad" onclick="sendCtrlAltDel()">Ctrl+Alt+Del</button>
   </div>
   <div id="screen"></div>
@@ -98,6 +158,26 @@
     <div>Connecting to console...</div>
   </div>
   <div id="error-msg" style="display:none"></div>
+
+  <div id="pastePanel">
+    <div class="panel-header">
+      <h3>&#128203; Paste Text to VM</h3>
+      <button class="close-btn" onclick="togglePastePanel()">&times;</button>
+    </div>
+    <div class="panel-body">
+      <div class="hint">
+        Paste or type text below, then click <strong>Send to VM</strong> to type it into the console.
+        Each character is sent as a keystroke. For quick paste, use <strong>Ctrl+Shift+V</strong> anywhere in the console.
+      </div>
+      <textarea id="pasteText" placeholder="Paste your text here..."></textarea>
+    </div>
+    <div class="panel-footer">
+      <button class="clear-btn" onclick="document.getElementById('pasteText').value=''">Clear</button>
+      <button class="send-btn" id="btnSendPaste" onclick="sendPasteText()">Send to VM</button>
+    </div>
+  </div>
+
+  <div id="pasteToast"></div>
 
   <script type="module">
     const params = new URLSearchParams(window.location.search);
@@ -124,6 +204,15 @@
 
     function updateStatus(text) {
       document.getElementById("statusText").textContent = text;
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("pasteToast");
+      toast.textContent = msg;
+      toast.classList.remove("show");
+      void toast.offsetWidth;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2200);
     }
 
     function updateVmStatus(status) {
@@ -209,6 +298,112 @@
     }
 
     let rfb = null;
+
+    const CHAR_TO_KEYSYM = {};
+    for (let i = 32; i <= 126; i++) {
+      CHAR_TO_KEYSYM[String.fromCharCode(i)] = i;
+    }
+    CHAR_TO_KEYSYM["\n"] = 0xFF0D;
+    CHAR_TO_KEYSYM["\r"] = 0xFF0D;
+    CHAR_TO_KEYSYM["\t"] = 0xFF09;
+
+    const SHIFT_CHARS = new Set('~!@#$%^&*()_+{}|:"<>?ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+
+    function typeTextToVm(text) {
+      if (!rfb || !text) return;
+
+      let i = 0;
+      const delay = 4;
+
+      function typeNext() {
+        if (i >= text.length) return;
+
+        const ch = text[i];
+        i++;
+
+        if (ch === "\r" && i < text.length && text[i] === "\n") {
+          i++;
+        }
+
+        const keysym = CHAR_TO_KEYSYM[ch];
+        if (keysym) {
+          const needShift = SHIFT_CHARS.has(ch);
+          if (needShift) rfb.sendKey(0xFFE1, "ShiftLeft", true);
+          rfb.sendKey(keysym, null, true);
+          rfb.sendKey(keysym, null, false);
+          if (needShift) rfb.sendKey(0xFFE1, "ShiftLeft", false);
+        }
+
+        if (i < text.length) {
+          setTimeout(typeNext, delay);
+        }
+      }
+
+      typeNext();
+    }
+
+    window.quickPaste = async function() {
+      if (!rfb) {
+        showToast("Console not connected");
+        return;
+      }
+      try {
+        const text = await navigator.clipboard.readText();
+        if (!text) {
+          showToast("Clipboard is empty");
+          return;
+        }
+        typeTextToVm(text);
+        showToast("Pasted " + text.length + " characters");
+      } catch (err) {
+        document.getElementById("pastePanel").classList.add("open");
+        document.getElementById("btnPastePanel").classList.add("active");
+        document.getElementById("pasteText").focus();
+        showToast("Clipboard access denied — use the Paste Panel instead");
+      }
+    };
+
+    window.togglePastePanel = function() {
+      const panel = document.getElementById("pastePanel");
+      const btn = document.getElementById("btnPastePanel");
+      panel.classList.toggle("open");
+      btn.classList.toggle("active");
+      if (panel.classList.contains("open")) {
+        document.getElementById("pasteText").focus();
+      } else {
+        const screenEl = document.getElementById("screen");
+        const canvas = screenEl.querySelector("canvas");
+        if (canvas) canvas.focus();
+      }
+    };
+
+    window.sendPasteText = function() {
+      if (!rfb) {
+        showToast("Console not connected");
+        return;
+      }
+      const textarea = document.getElementById("pasteText");
+      const text = textarea.value;
+      if (!text) {
+        showToast("No text to send");
+        return;
+      }
+      typeTextToVm(text);
+      showToast("Sending " + text.length + " characters to VM");
+      textarea.value = "";
+      const panel = document.getElementById("pastePanel");
+      const btn = document.getElementById("btnPastePanel");
+      panel.classList.remove("open");
+      btn.classList.remove("active");
+    };
+
+    document.addEventListener("keydown", function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "V") {
+        e.preventDefault();
+        e.stopPropagation();
+        window.quickPaste();
+      }
+    }, true);
 
     function connect(RFB, token) {
       updateStatus("Connecting to VM...");

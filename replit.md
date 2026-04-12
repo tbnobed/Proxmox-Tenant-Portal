@@ -41,6 +41,7 @@ The Proxmox Management Portal is a monorepo application using pnpm workspaces.
 - **VM Creation**: Supports both QEMU VMs and LXC containers, with comprehensive configuration options and enforcement of tenant resource quotas and cluster access.
 - **VM Templating**: Allows creation, management, and application of reusable VM configuration templates to pre-fill the VM creation form.
 - **Bulk VM Actions**: Enables selecting multiple VMs and performing contextual Start/Stop/Reboot actions with sequential execution and progress indication.
+- **VM Console Clipboard**: Paste text from your desktop clipboard into the VM console. "Paste" button reads clipboard and types text as keystrokes. "Paste Panel" opens a side panel for pasting longer text manually. Keyboard shortcut: Ctrl+Shift+V. Characters sent via `rfb.sendKey()` for universal compatibility.
 - **VM Media Management**: Provides functionality to eject mounted ISOs from QEMU VMs via the VM detail page.
 - **VM Snapshots**: Offers create, list, restore, and delete functionalities for Proxmox snapshots directly from the VM detail page, with logging to the activity table.
 - **User Activity**: Tracks `lastLoginAt` on the `users` table and maintains a detailed `user_sessions` history with login/logout times, IP, and user agent.
