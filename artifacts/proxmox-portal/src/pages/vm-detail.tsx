@@ -8,12 +8,26 @@ import {
   getGetDashboardStatsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Play, Square, RotateCcw, Cpu, MemoryStick, HardDrive, Network, Server, Building2, Monitor } from "lucide-react";
+import { ArrowLeft, Play, Square, RotateCcw, Cpu, MemoryStick, HardDrive, Network, Server, Building2, Monitor, Camera, Trash2, History, Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+
+const BASE = import.meta.env.BASE_URL ?? "/";
+
+interface Snapshot {
+  name: string;
+  description?: string;
+  snaptime?: number;
+  vmstate?: number;
+  parent?: string;
+}
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -25,6 +39,231 @@ function StatusBadge({ status }: { status: string }) {
     <span className={cn("text-xs px-2 py-0.5 rounded border font-medium", map[status] ?? "bg-muted text-muted-foreground border-border")}>
       {status}
     </span>
+  );
+}
+
+function SnapshotsPanel({ vmId, vmType }: { vmId: number; vmType: string }) {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const canManage = user?.role === "admin" || user?.role === "operator";
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [includeState, setIncludeState] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const fetchSnapshots = useCallback(() => {
+    setLoading(true);
+    setFetchError(null);
+    fetch(`${BASE}api/vms/${vmId}/snapshots`, { credentials: "include" })
+      .then(async r => {
+        if (!r.ok) {
+          const body = await r.json().catch(() => ({}));
+          throw new Error(body.error || `HTTP ${r.status}`);
+        }
+        return r.json();
+      })
+      .then(setSnapshots)
+      .catch(e => {
+        setFetchError(e.message || "Failed to load snapshots");
+        setSnapshots([]);
+      })
+      .finally(() => setLoading(false));
+  }, [vmId]);
+
+  useEffect(() => { fetchSnapshots(); }, [fetchSnapshots]);
+
+  function handleCreate() {
+    if (!newName.trim()) return;
+    setCreating(true);
+    fetch(`${BASE}api/vms/${vmId}/snapshots`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newName.trim(), description: newDesc.trim() || undefined, includeVmState: includeState }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          toast({ title: data.message });
+          setNewName(""); setNewDesc(""); setIncludeState(false); setShowCreateForm(false);
+          fetchSnapshots();
+        } else {
+          toast({ title: "Error", description: data.error, variant: "destructive" });
+        }
+      })
+      .catch(e => toast({ title: "Error", description: e.message, variant: "destructive" }))
+      .finally(() => setCreating(false));
+  }
+
+  function handleRollback(snapname: string) {
+    if (!confirm(`Restore VM to snapshot "${snapname}"? This will revert the VM to the state when this snapshot was taken.`)) return;
+    setActionInProgress(`rollback-${snapname}`);
+    fetch(`${BASE}api/vms/${vmId}/snapshots/${encodeURIComponent(snapname)}/rollback`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) toast({ title: data.message });
+        else toast({ title: "Error", description: data.error, variant: "destructive" });
+      })
+      .catch(e => toast({ title: "Error", description: e.message, variant: "destructive" }))
+      .finally(() => setActionInProgress(null));
+  }
+
+  function handleDelete(snapname: string) {
+    if (!confirm(`Delete snapshot "${snapname}"? This action cannot be undone.`)) return;
+    setActionInProgress(`delete-${snapname}`);
+    fetch(`${BASE}api/vms/${vmId}/snapshots/${encodeURIComponent(snapname)}`, {
+      method: "DELETE",
+      credentials: "include",
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          toast({ title: data.message });
+          fetchSnapshots();
+        } else {
+          toast({ title: "Error", description: data.error, variant: "destructive" });
+        }
+      })
+      .catch(e => toast({ title: "Error", description: e.message, variant: "destructive" }))
+      .finally(() => setActionInProgress(null));
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-card">
+      <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Camera className="w-4 h-4 text-primary" />
+          <h2 className="text-sm font-semibold text-foreground">Snapshots</h2>
+          {!loading && <span className="text-xs text-muted-foreground">({snapshots.length})</span>}
+        </div>
+        {canManage && (
+          <Button size="sm" variant="outline" onClick={() => setShowCreateForm(!showCreateForm)}>
+            <Plus className="w-3.5 h-3.5 mr-1" />
+            New Snapshot
+          </Button>
+        )}
+      </div>
+
+      {showCreateForm && canManage && (
+        <div className="px-4 py-3 border-b border-border bg-muted/20 space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label className="text-xs text-muted-foreground">Name</Label>
+              <Input
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                placeholder="e.g. before-upgrade"
+                className="mt-1 h-8 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Description</Label>
+              <Input
+                value={newDesc}
+                onChange={e => setNewDesc(e.target.value)}
+                placeholder="Optional description"
+                className="mt-1 h-8 text-sm"
+              />
+            </div>
+          </div>
+          {vmType === "qemu" && (
+            <div className="flex items-center gap-2">
+              <Switch checked={includeState} onCheckedChange={setIncludeState} id="vmstate" />
+              <Label htmlFor="vmstate" className="text-xs text-muted-foreground cursor-pointer">Include VM RAM state</Label>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Button size="sm" disabled={creating || !newName.trim()} onClick={handleCreate}>
+              {creating ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Camera className="w-3.5 h-3.5 mr-1" />}
+              {creating ? "Creating..." : "Create Snapshot"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowCreateForm(false)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="px-4 py-6 text-center">
+          <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" />
+        </div>
+      ) : fetchError ? (
+        <div className="px-4 py-6 text-center">
+          <Camera className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+          <p className="text-sm text-red-400">{fetchError}</p>
+          <Button size="sm" variant="ghost" className="mt-2" onClick={fetchSnapshots}>Retry</Button>
+        </div>
+      ) : snapshots.length === 0 ? (
+        <div className="px-4 py-6 text-center">
+          <Camera className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">No snapshots yet</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-border">
+          {snapshots
+            .sort((a, b) => (b.snaptime ?? 0) - (a.snaptime ?? 0))
+            .map(snap => (
+              <div key={snap.name} className="px-4 py-3 flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium text-foreground">{snap.name}</span>
+                    {snap.vmstate === 1 && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-olive/10 text-olive border border-olive/20">RAM</span>
+                    )}
+                  </div>
+                  {snap.description && (
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{snap.description}</p>
+                  )}
+                  {snap.snaptime && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {new Date(snap.snaptime * 1000).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+                {canManage && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={!!actionInProgress}
+                      onClick={() => handleRollback(snap.name)}
+                      title="Restore to this snapshot"
+                    >
+                      {actionInProgress === `rollback-${snap.name}` ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <History className="w-3.5 h-3.5 text-sand" />
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={!!actionInProgress}
+                      onClick={() => handleDelete(snap.name)}
+                      title="Delete snapshot"
+                    >
+                      {actionInProgress === `delete-${snap.name}` ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -187,6 +426,8 @@ export default function VmDetailPage() {
           </div>
         </div>
       )}
+
+      {vm && <SnapshotsPanel vmId={id} vmType={vm.type} />}
     </div>
   );
 }

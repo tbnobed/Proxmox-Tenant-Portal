@@ -253,6 +253,99 @@ export async function getVncTicket(
   return { ...result, auth };
 }
 
+export interface ProxmoxSnapshot {
+  name: string;
+  description?: string;
+  snaptime?: number;
+  vmstate?: number;
+  parent?: string;
+}
+
+export async function listSnapshots(
+  host: string,
+  port: number,
+  username: string,
+  password: string,
+  realm: string,
+  node: string,
+  vmId: number,
+  type: string
+): Promise<ProxmoxSnapshot[]> {
+  const auth = await authenticate(host, port, username, password, realm);
+  const vmType = type === "lxc" ? "lxc" : "qemu";
+  const path = `/api2/json/nodes/${node}/${vmType}/${vmId}/snapshot`;
+  const result = await apiGet<ProxmoxSnapshot[]>(host, port, path, auth);
+  return result.filter(s => s.name !== "current");
+}
+
+export async function createSnapshot(
+  host: string,
+  port: number,
+  username: string,
+  password: string,
+  realm: string,
+  node: string,
+  vmId: number,
+  type: string,
+  snapname: string,
+  description?: string,
+  includeVmState?: boolean
+): Promise<string> {
+  const auth = await authenticate(host, port, username, password, realm);
+  const vmType = type === "lxc" ? "lxc" : "qemu";
+  const path = `/api2/json/nodes/${node}/${vmType}/${vmId}/snapshot`;
+  const params = new URLSearchParams({ snapname });
+  if (description) params.set("description", description);
+  if (includeVmState && vmType === "qemu") params.set("vmstate", "1");
+  return apiPost<string>(host, port, path, auth, params.toString());
+}
+
+export async function deleteSnapshot(
+  host: string,
+  port: number,
+  username: string,
+  password: string,
+  realm: string,
+  node: string,
+  vmId: number,
+  type: string,
+  snapname: string
+): Promise<string> {
+  const auth = await authenticate(host, port, username, password, realm);
+  const vmType = type === "lxc" ? "lxc" : "qemu";
+  const path = `/api2/json/nodes/${node}/${vmType}/${vmId}/snapshot/${encodeURIComponent(snapname)}`;
+  const url = `https://${host}:${port}${path}`;
+  const { status, data } = await request(url, {
+    method: "DELETE",
+    headers: {
+      Cookie: `PVEAuthCookie=${auth.ticket}`,
+      CSRFPreventionToken: auth.csrfToken,
+    },
+  });
+  if (status !== 200) {
+    const errMsg = typeof data === "object" && data !== null ? JSON.stringify(data) : String(data);
+    throw new Error(`Proxmox API error (${status}) for DELETE ${path}: ${errMsg}`);
+  }
+  return (data as { data: string }).data;
+}
+
+export async function rollbackSnapshot(
+  host: string,
+  port: number,
+  username: string,
+  password: string,
+  realm: string,
+  node: string,
+  vmId: number,
+  type: string,
+  snapname: string
+): Promise<string> {
+  const auth = await authenticate(host, port, username, password, realm);
+  const vmType = type === "lxc" ? "lxc" : "qemu";
+  const path = `/api2/json/nodes/${node}/${vmType}/${vmId}/snapshot/${encodeURIComponent(snapname)}/rollback`;
+  return apiPost<string>(host, port, path, auth);
+}
+
 export interface NodeStatus {
   node: string;
   status: string;

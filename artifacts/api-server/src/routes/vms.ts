@@ -15,7 +15,7 @@ import {
   UpdateVmResponse,
   VmActionResponse,
 } from "@workspace/api-zod";
-import { performVmAction, getVncTicket, authenticate } from "../proxmox-client";
+import { performVmAction, getVncTicket, authenticate, listSnapshots, createSnapshot, deleteSnapshot, rollbackSnapshot } from "../proxmox-client";
 import { createVncSession } from "../vnc-proxy";
 import { getSessionUser } from "../middleware/auth";
 import { requireAdmin, requireOperatorOrAdmin } from "../middleware/auth";
@@ -380,6 +380,147 @@ router.post("/vms/:id/console", async (req, res): Promise<void> => {
     const errMsg = err instanceof Error ? err.message : String(err);
     console.error(`Console ticket failed: ${errMsg}`);
     res.status(502).json({ error: `Failed to get console ticket: ${errMsg}` });
+  }
+});
+
+async function getVmWithCluster(id: number) {
+  const [vm] = await db.select().from(vmsTable).where(eq(vmsTable.id, id));
+  if (!vm) return null;
+  const [cluster] = await db.select().from(clustersTable).where(eq(clustersTable.id, vm.clusterId));
+  if (!cluster?.passwordHash) return null;
+  return { vm, cluster };
+}
+
+router.get("/vms/:id/snapshots", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid VM id" }); return; }
+
+  const result = await getVmWithCluster(id);
+  if (!result) { res.status(404).json({ error: "VM or cluster not found" }); return; }
+  const { vm, cluster } = result;
+
+  const sessionUser = getSessionUser(req);
+  if (sessionUser && sessionUser.userRole !== "admin") {
+    const hasAccess = await canAccessVm(sessionUser.userId, sessionUser.tenantId, vm.id);
+    if (!hasAccess) { res.status(403).json({ error: "Access denied" }); return; }
+  }
+
+  try {
+    const snapshots = await listSnapshots(
+      cluster.host, cluster.port, cluster.username, cluster.passwordHash,
+      cluster.realm, vm.node, vm.vmId, vm.type
+    );
+    res.json(snapshots);
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    res.status(502).json({ error: `Failed to list snapshots: ${errMsg}` });
+  }
+});
+
+router.post("/vms/:id/snapshots", requireOperatorOrAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid VM id" }); return; }
+
+  const { name: snapname, description, includeVmState } = req.body;
+  if (!snapname || typeof snapname !== "string") {
+    res.status(400).json({ error: "Snapshot name is required" }); return;
+  }
+  if (snapname.length > 40 || !/^[a-zA-Z0-9_-]+$/.test(snapname)) {
+    res.status(400).json({ error: "Snapshot name must be 1-40 characters, using letters, numbers, hyphens, or underscores" }); return;
+  }
+
+  const result = await getVmWithCluster(id);
+  if (!result) { res.status(404).json({ error: "VM or cluster not found" }); return; }
+  const { vm, cluster } = result;
+
+  const sessionUser = getSessionUser(req);
+  if (sessionUser && sessionUser.userRole !== "admin") {
+    const hasAccess = await canAccessVm(sessionUser.userId, sessionUser.tenantId, vm.id);
+    if (!hasAccess) { res.status(403).json({ error: "Access denied" }); return; }
+  }
+
+  try {
+    await createSnapshot(
+      cluster.host, cluster.port, cluster.username, cluster.passwordHash,
+      cluster.realm, vm.node, vm.vmId, vm.type,
+      snapname, description, includeVmState
+    );
+    await db.insert(activityTable).values({
+      eventType: "vm_snapshot_create",
+      description: `Snapshot "${snapname}" created on VM ${vm.name}`,
+      vmId: vm.id,
+      vmName: vm.name,
+    });
+    res.json({ success: true, message: `Snapshot "${snapname}" created` });
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    res.status(502).json({ error: `Failed to create snapshot: ${errMsg}` });
+  }
+});
+
+router.post("/vms/:id/snapshots/:snapname/rollback", requireOperatorOrAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const snapname = req.params.snapname;
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid VM id" }); return; }
+
+  const result = await getVmWithCluster(id);
+  if (!result) { res.status(404).json({ error: "VM or cluster not found" }); return; }
+  const { vm, cluster } = result;
+
+  const sessionUser = getSessionUser(req);
+  if (sessionUser && sessionUser.userRole !== "admin") {
+    const hasAccess = await canAccessVm(sessionUser.userId, sessionUser.tenantId, vm.id);
+    if (!hasAccess) { res.status(403).json({ error: "Access denied" }); return; }
+  }
+
+  try {
+    await rollbackSnapshot(
+      cluster.host, cluster.port, cluster.username, cluster.passwordHash,
+      cluster.realm, vm.node, vm.vmId, vm.type, snapname
+    );
+    await db.insert(activityTable).values({
+      eventType: "vm_snapshot_rollback",
+      description: `VM ${vm.name} rolled back to snapshot "${snapname}"`,
+      vmId: vm.id,
+      vmName: vm.name,
+    });
+    res.json({ success: true, message: `Rolled back to snapshot "${snapname}"` });
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    res.status(502).json({ error: `Failed to rollback snapshot: ${errMsg}` });
+  }
+});
+
+router.delete("/vms/:id/snapshots/:snapname", requireOperatorOrAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const snapname = req.params.snapname;
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid VM id" }); return; }
+
+  const result = await getVmWithCluster(id);
+  if (!result) { res.status(404).json({ error: "VM or cluster not found" }); return; }
+  const { vm, cluster } = result;
+
+  const sessionUser = getSessionUser(req);
+  if (sessionUser && sessionUser.userRole !== "admin") {
+    const hasAccess = await canAccessVm(sessionUser.userId, sessionUser.tenantId, vm.id);
+    if (!hasAccess) { res.status(403).json({ error: "Access denied" }); return; }
+  }
+
+  try {
+    await deleteSnapshot(
+      cluster.host, cluster.port, cluster.username, cluster.passwordHash,
+      cluster.realm, vm.node, vm.vmId, vm.type, snapname
+    );
+    await db.insert(activityTable).values({
+      eventType: "vm_snapshot_delete",
+      description: `Snapshot "${snapname}" deleted from VM ${vm.name}`,
+      vmId: vm.id,
+      vmName: vm.name,
+    });
+    res.json({ success: true, message: `Snapshot "${snapname}" deleted` });
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    res.status(502).json({ error: `Failed to delete snapshot: ${errMsg}` });
   }
 });
 
