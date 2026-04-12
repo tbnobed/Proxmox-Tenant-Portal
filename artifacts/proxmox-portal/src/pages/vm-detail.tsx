@@ -95,9 +95,6 @@ function MediaPanel({ vmId, vmType }: { vmId: number; vmType: string }) {
       .finally(() => setEjecting(null));
   }
 
-  if (loading) return null;
-  if (media.length === 0) return null;
-
   const extractIsoName = (val: string) => {
     const match = val.match(/([^/]+\.iso)/i);
     return match ? match[1] : val.split(",")[0];
@@ -108,35 +105,46 @@ function MediaPanel({ vmId, vmType }: { vmId: number; vmType: string }) {
       <div className="px-4 py-3 border-b border-border flex items-center gap-2">
         <Disc className="w-4 h-4 text-primary" />
         <h2 className="text-sm font-semibold text-foreground">Mounted Media</h2>
+        {!loading && <span className="text-xs text-muted-foreground">({media.length})</span>}
       </div>
-      <div className="divide-y divide-border">
-        {media.map(m => (
-          <div key={m.drive} className="px-4 py-3 flex items-center justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase">{m.drive}</span>
-                <span className="text-sm text-foreground truncate">{extractIsoName(m.media)}</span>
+      {loading ? (
+        <div className="px-4 py-4 text-center">
+          <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" />
+        </div>
+      ) : media.length === 0 ? (
+        <div className="px-4 py-4 text-center">
+          <p className="text-sm text-muted-foreground">No CD/DVD media mounted</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-border">
+          {media.map(m => (
+            <div key={m.drive} className="px-4 py-3 flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase">{m.drive}</span>
+                  <span className="text-sm text-foreground truncate">{extractIsoName(m.media)}</span>
+                </div>
               </div>
+              {canManage && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!!ejecting}
+                  onClick={() => handleEject(m.drive)}
+                  title="Eject media"
+                >
+                  {ejecting === m.drive ? (
+                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <CircleSlash className="w-3.5 h-3.5 mr-1.5" />
+                  )}
+                  {ejecting === m.drive ? "Ejecting..." : "Eject"}
+                </Button>
+              )}
             </div>
-            {canManage && (
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!!ejecting}
-                onClick={() => handleEject(m.drive)}
-                title="Eject media"
-              >
-                {ejecting === m.drive ? (
-                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                ) : (
-                  <CircleSlash className="w-3.5 h-3.5 mr-1.5" />
-                )}
-                {ejecting === m.drive ? "Ejecting..." : "Eject"}
-              </Button>
-            )}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

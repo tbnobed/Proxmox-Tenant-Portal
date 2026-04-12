@@ -366,9 +366,15 @@ export async function getVmMedia(
   const path = `/api2/json/nodes/${node}/${vmType}/${vmId}/config`;
   const config = await apiGet<Record<string, unknown>>(host, port, path, auth);
   const media: VmMountedMedia[] = [];
+  const drivePattern = /^(ide|sata|scsi)\d+$/;
   for (const [key, val] of Object.entries(config)) {
     if (typeof val !== "string") continue;
-    if (val.includes("media=cdrom") && !val.startsWith("none")) {
+    if (!drivePattern.test(key)) continue;
+    const isNone = val === "none,media=cdrom" || val === "none" || val === "";
+    if (isNone) continue;
+    const hasCdrom = val.includes("media=cdrom");
+    const hasIso = /\.iso/i.test(val);
+    if (hasCdrom || hasIso) {
       media.push({ drive: key, media: val });
     }
   }
