@@ -98,8 +98,8 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     }
 
     const decryptedSecret = decrypt2FASecret(user.twoFactorSecret);
-    const isValid = verifySync({ token: totpCode, secret: decryptedSecret });
-    if (!isValid) {
+    const result = verifySync({ token: totpCode, secret: decryptedSecret });
+    if (!result.valid) {
       res.status(401).json({ error: "Invalid two-factor authentication code" });
       return;
     }
@@ -222,8 +222,8 @@ router.post("/auth/2fa/verify", requireAuth, async (req, res): Promise<void> => 
   }
 
   const decryptedSecret = decrypt2FASecret(user.twoFactorSecret);
-  const isValid = verifySync({ token: code, secret: decryptedSecret });
-  if (!isValid) {
+  const result = verifySync({ token: code, secret: decryptedSecret });
+  if (!result.valid) {
     res.status(400).json({ error: "Invalid verification code. Please try again." });
     return;
   }
