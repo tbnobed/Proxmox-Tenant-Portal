@@ -7,6 +7,7 @@ import {
   Building2, 
   MonitorPlay,
   ShieldAlert,
+  ShieldCheck,
   Bell,
   FileText,
   Layers,
@@ -36,6 +37,7 @@ const navItems = [
   { href: "/access", label: "Access Control", icon: ShieldAlert, adminOnly: true },
   { href: "/notifications", label: "Notifications", icon: Bell, adminOnly: true },
   { href: "/requests", label: "Requests", icon: FileText, adminOnly: false },
+  { href: "/security", label: "Security", icon: ShieldCheck, adminOnly: false },
 ];
 
 export function AppLayout({ children }: AppLayoutProps) {

@@ -26,6 +26,7 @@ import VmTemplatesPage from "@/pages/vm-templates";
 import AcceptInvitePage from "@/pages/accept-invite";
 import ResetPasswordPage from "@/pages/reset-password";
 import ForgotPasswordPage from "@/pages/forgot-password";
+import SecurityPage from "@/pages/security";
 import { Loader2 } from "lucide-react";
 
 let authRefreshCallback: (() => void) | null = null;
@@ -104,6 +105,7 @@ function AppRouter() {
         <Route path="/access">{() => <AdminRoute component={AccessPage} />}</Route>
         <Route path="/notifications">{() => <AdminRoute component={NotificationsPage} />}</Route>
         <Route path="/requests" component={RequestsPage} />
+        <Route path="/security" component={SecurityPage} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

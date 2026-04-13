@@ -8,6 +8,7 @@ interface AuthUser {
   role: string;
   tenantId: number | null;
   tenantName: string | null;
+  twoFactorEnabled: boolean;
 }
 
 interface AuthContextValue {

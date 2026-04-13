@@ -2,6 +2,34 @@ import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import crypto from "node:crypto";
 import { db, usersTable, tenantsTable, userSessionsTable } from "@workspace/db";
+import * as otplib from "otplib";
+import QRCode from "qrcode";
+import { requireAuth } from "../middleware/auth.js";
+
+const { generateSecret, generateURI, verifySync } = otplib;
+
+const ENCRYPTION_KEY = process.env.SESSION_SECRET || "proxhub-2fa-encryption-key-change-me";
+
+function encrypt2FASecret(plainSecret: string): string {
+  const iv = crypto.randomBytes(16);
+  const key = crypto.scryptSync(ENCRYPTION_KEY, "2fa-salt", 32);
+  const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
+  let encrypted = cipher.update(plainSecret, "utf8", "hex");
+  encrypted += cipher.final("hex");
+  return iv.toString("hex") + ":" + encrypted;
+}
+
+function decrypt2FASecret(encryptedSecret: string): string {
+  const parts = encryptedSecret.split(":");
+  if (parts.length !== 2) return encryptedSecret;
+  const [ivHex, encrypted] = parts;
+  const iv = Buffer.from(ivHex, "hex");
+  const key = crypto.scryptSync(ENCRYPTION_KEY, "2fa-salt", 32);
+  const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
+  let decrypted = decipher.update(encrypted, "hex", "utf8");
+  decrypted += decipher.final("utf8");
+  return decrypted;
+}
 
 const router: IRouter = Router();
 
@@ -30,7 +58,7 @@ export async function createHashedPassword(password: string): Promise<string> {
 }
 
 router.post("/auth/login", async (req, res): Promise<void> => {
-  const { username, password } = req.body;
+  const { username, password, totpCode } = req.body;
 
   if (!username || !password) {
     res.status(400).json({ error: "Username and password are required" });
@@ -61,6 +89,20 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   if (!user.passwordHash.includes(":")) {
     const hashed = await createHashedPassword(password);
     await db.update(usersTable).set({ passwordHash: hashed }).where(eq(usersTable.id, user.id));
+  }
+
+  if (user.twoFactorEnabled && user.twoFactorSecret) {
+    if (!totpCode) {
+      res.json({ requiresTwoFactor: true });
+      return;
+    }
+
+    const decryptedSecret = decrypt2FASecret(user.twoFactorSecret);
+    const isValid = verifySync({ token: totpCode, secret: decryptedSecret });
+    if (!isValid) {
+      res.status(401).json({ error: "Invalid two-factor authentication code" });
+      return;
+    }
   }
 
   const now = new Date();
@@ -135,7 +177,86 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     role: user.role,
     tenantId: user.tenantId,
     tenantName,
+    twoFactorEnabled: user.twoFactorEnabled,
   });
+});
+
+router.post("/auth/2fa/setup", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req.session as any).userId;
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  if (user.twoFactorEnabled) {
+    res.status(400).json({ error: "Two-factor authentication is already enabled" });
+    return;
+  }
+
+  const secret = generateSecret();
+  const otpauth = generateURI({ issuer: "ProxHub", label: user.email || user.username, secret, type: "totp" });
+
+  const encryptedSecret = encrypt2FASecret(secret);
+  await db.update(usersTable).set({ twoFactorSecret: encryptedSecret }).where(eq(usersTable.id, userId));
+
+  const qrDataUrl = await QRCode.toDataURL(otpauth);
+
+  res.json({ secret, qrCode: qrDataUrl });
+});
+
+router.post("/auth/2fa/verify", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req.session as any).userId;
+  const { code } = req.body;
+
+  if (!code) {
+    res.status(400).json({ error: "Verification code is required" });
+    return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user || !user.twoFactorSecret) {
+    res.status(400).json({ error: "2FA setup not initiated. Please start setup first." });
+    return;
+  }
+
+  const decryptedSecret = decrypt2FASecret(user.twoFactorSecret);
+  const isValid = verifySync({ token: code, secret: decryptedSecret });
+  if (!isValid) {
+    res.status(400).json({ error: "Invalid verification code. Please try again." });
+    return;
+  }
+
+  await db.update(usersTable).set({ twoFactorEnabled: true }).where(eq(usersTable.id, userId));
+
+  res.json({ ok: true, message: "Two-factor authentication enabled successfully" });
+});
+
+router.post("/auth/2fa/disable", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req.session as any).userId;
+  const { password } = req.body;
+
+  if (!password) {
+    res.status(400).json({ error: "Password is required to disable 2FA" });
+    return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const valid = await verifyPassword(password, user.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: "Invalid password" });
+    return;
+  }
+
+  await db.update(usersTable).set({ twoFactorEnabled: false, twoFactorSecret: null }).where(eq(usersTable.id, userId));
+
+  res.json({ ok: true, message: "Two-factor authentication disabled" });
 });
 
 export default router;
