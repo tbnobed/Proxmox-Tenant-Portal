@@ -121,11 +121,42 @@
       100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
     }
 
+    #onscreenKeyboard {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #1a1a2e; border-top: 1px solid #2a2a3e;
+      z-index: 25; display: none; flex-direction: column; gap: 4px;
+      padding: 8px; box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+    }
+    #onscreenKeyboard.open { display: flex; }
+    .kbd-row {
+      display: flex; gap: 3px; justify-content: center;
+    }
+    .kbd-key {
+      background: #2a2a3e; color: #ccc; border: 1px solid #3a3a4e; border-radius: 4px;
+      padding: 6px 0; cursor: pointer; font-size: 12px; font-family: monospace;
+      min-width: 32px; text-align: center; transition: all 0.1s; user-select: none;
+      flex: 0 0 auto;
+    }
+    .kbd-key:hover { background: #3a3a4e; color: #fff; }
+    .kbd-key:active, .kbd-key.active { background: #53561F; color: #E6CAA7; border-color: #53561F; }
+    .kbd-key.wide { min-width: 56px; font-size: 11px; }
+    .kbd-key.wider { min-width: 72px; font-size: 11px; }
+    .kbd-key.widest { flex: 1; max-width: 280px; font-size: 11px; }
+    .kbd-key.fn { background: #1e1e30; font-size: 10px; min-width: 36px; }
+    .kbd-key.mod { background: #252540; font-size: 10px; }
+    .kbd-key.mod.active { background: #53561F; color: #E6CAA7; }
+    .tbtn.keyboard { border-color: #2563eb44; }
+    .tbtn.keyboard:hover { background: #2563eb22; color: #93c5fd; }
+    .tbtn.keyboard.active { background: #2563eb33; color: #93c5fd; border-color: #2563eb; }
+
     @media (max-width: 700px) {
       #toolbar { padding: 6px 10px; gap: 4px; }
       .tbtn { padding: 3px 7px; font-size: 11px; }
       .vm-status { font-size: 11px; }
       #pastePanel { width: 100%; }
+      .kbd-key { min-width: 26px; padding: 5px 0; font-size: 11px; }
+      .kbd-key.wide { min-width: 44px; }
+      .kbd-key.wider { min-width: 56px; }
     }
   </style>
 </head>
@@ -150,6 +181,7 @@
     <span class="sep"></span>
     <button class="tbtn paste" id="btnQuickPaste" onclick="quickPaste()" title="Paste clipboard text into VM (Ctrl+Shift+V)">&#128203; Paste</button>
     <button class="tbtn paste" id="btnPastePanel" onclick="togglePastePanel()" title="Open paste panel for longer text">&#9998; Paste Panel</button>
+    <button class="tbtn keyboard" id="btnKeyboard" onclick="toggleKeyboard()" title="On-screen keyboard">&#9000; Keyboard</button>
     <button class="tbtn cad" onclick="sendCtrlAltDel()">Ctrl+Alt+Del</button>
   </div>
   <div id="screen"></div>
@@ -158,6 +190,109 @@
     <div>Connecting to console...</div>
   </div>
   <div id="error-msg" style="display:none"></div>
+
+  <div id="onscreenKeyboard">
+    <div class="kbd-row">
+      <button class="kbd-key fn" data-key="Escape" data-ks="0xFF1B">Esc</button>
+      <button class="kbd-key fn" data-key="F1" data-ks="0xFFBE">F1</button>
+      <button class="kbd-key fn" data-key="F2" data-ks="0xFFBF">F2</button>
+      <button class="kbd-key fn" data-key="F3" data-ks="0xFFC0">F3</button>
+      <button class="kbd-key fn" data-key="F4" data-ks="0xFFC1">F4</button>
+      <button class="kbd-key fn" data-key="F5" data-ks="0xFFC2">F5</button>
+      <button class="kbd-key fn" data-key="F6" data-ks="0xFFC3">F6</button>
+      <button class="kbd-key fn" data-key="F7" data-ks="0xFFC4">F7</button>
+      <button class="kbd-key fn" data-key="F8" data-ks="0xFFC5">F8</button>
+      <button class="kbd-key fn" data-key="F9" data-ks="0xFFC6">F9</button>
+      <button class="kbd-key fn" data-key="F10" data-ks="0xFFC7">F10</button>
+      <button class="kbd-key fn" data-key="F11" data-ks="0xFFC8">F11</button>
+      <button class="kbd-key fn" data-key="F12" data-ks="0xFFC9">F12</button>
+      <button class="kbd-key fn" data-key="Insert" data-ks="0xFF63">Ins</button>
+      <button class="kbd-key fn" data-key="Delete" data-ks="0xFFFF">Del</button>
+    </div>
+    <div class="kbd-row">
+      <button class="kbd-key" data-char="`">~`</button>
+      <button class="kbd-key" data-char="1">1</button>
+      <button class="kbd-key" data-char="2">2</button>
+      <button class="kbd-key" data-char="3">3</button>
+      <button class="kbd-key" data-char="4">4</button>
+      <button class="kbd-key" data-char="5">5</button>
+      <button class="kbd-key" data-char="6">6</button>
+      <button class="kbd-key" data-char="7">7</button>
+      <button class="kbd-key" data-char="8">8</button>
+      <button class="kbd-key" data-char="9">9</button>
+      <button class="kbd-key" data-char="0">0</button>
+      <button class="kbd-key" data-char="-">-</button>
+      <button class="kbd-key" data-char="=">=</button>
+      <button class="kbd-key wide" data-key="Backspace" data-ks="0xFF08">Bksp</button>
+    </div>
+    <div class="kbd-row">
+      <button class="kbd-key wide" data-key="Tab" data-ks="0xFF09">Tab</button>
+      <button class="kbd-key" data-char="q">q</button>
+      <button class="kbd-key" data-char="w">w</button>
+      <button class="kbd-key" data-char="e">e</button>
+      <button class="kbd-key" data-char="r">r</button>
+      <button class="kbd-key" data-char="t">t</button>
+      <button class="kbd-key" data-char="y">y</button>
+      <button class="kbd-key" data-char="u">u</button>
+      <button class="kbd-key" data-char="i">i</button>
+      <button class="kbd-key" data-char="o">o</button>
+      <button class="kbd-key" data-char="p">p</button>
+      <button class="kbd-key" data-char="[">[</button>
+      <button class="kbd-key" data-char="]">]</button>
+      <button class="kbd-key" data-char="\">\</button>
+    </div>
+    <div class="kbd-row">
+      <button class="kbd-key wider mod" data-mod="capslock" data-ks="0xFFE5">Caps</button>
+      <button class="kbd-key" data-char="a">a</button>
+      <button class="kbd-key" data-char="s">s</button>
+      <button class="kbd-key" data-char="d">d</button>
+      <button class="kbd-key" data-char="f">f</button>
+      <button class="kbd-key" data-char="g">g</button>
+      <button class="kbd-key" data-char="h">h</button>
+      <button class="kbd-key" data-char="j">j</button>
+      <button class="kbd-key" data-char="k">k</button>
+      <button class="kbd-key" data-char="l">l</button>
+      <button class="kbd-key" data-char=";">;</button>
+      <button class="kbd-key" data-char="'">'</button>
+      <button class="kbd-key wider" data-key="Enter" data-ks="0xFF0D">Enter</button>
+    </div>
+    <div class="kbd-row">
+      <button class="kbd-key wider mod" data-mod="shift" data-ks="0xFFE1">Shift</button>
+      <button class="kbd-key" data-char="z">z</button>
+      <button class="kbd-key" data-char="x">x</button>
+      <button class="kbd-key" data-char="c">c</button>
+      <button class="kbd-key" data-char="v">v</button>
+      <button class="kbd-key" data-char="b">b</button>
+      <button class="kbd-key" data-char="n">n</button>
+      <button class="kbd-key" data-char="m">m</button>
+      <button class="kbd-key" data-char=",">,</button>
+      <button class="kbd-key" data-char=".">.</button>
+      <button class="kbd-key" data-char="/">/</button>
+      <button class="kbd-key wider mod" data-mod="shift" data-ks="0xFFE1">Shift</button>
+    </div>
+    <div class="kbd-row">
+      <button class="kbd-key wide mod" data-mod="ctrl" data-ks="0xFFE3">Ctrl</button>
+      <button class="kbd-key wide mod" data-mod="super" data-ks="0xFFEB">Super</button>
+      <button class="kbd-key wide mod" data-mod="alt" data-ks="0xFFE9">Alt</button>
+      <button class="kbd-key widest" data-char=" ">Space</button>
+      <button class="kbd-key wide mod" data-mod="alt" data-ks="0xFFE9">Alt</button>
+      <button class="kbd-key wide" data-key="Home" data-ks="0xFF50">Home</button>
+      <button class="kbd-key" data-key="Up" data-ks="0xFF52">&uarr;</button>
+      <button class="kbd-key wide" data-key="End" data-ks="0xFF57">End</button>
+      <button class="kbd-key wide" data-key="PgUp" data-ks="0xFF55">PgUp</button>
+    </div>
+    <div class="kbd-row">
+      <button class="kbd-key wide" style="visibility:hidden">_</button>
+      <button class="kbd-key wide" style="visibility:hidden">_</button>
+      <button class="kbd-key wide" style="visibility:hidden">_</button>
+      <button class="kbd-key widest" style="visibility:hidden">_</button>
+      <button class="kbd-key wide" style="visibility:hidden">_</button>
+      <button class="kbd-key" data-key="Left" data-ks="0xFF51">&larr;</button>
+      <button class="kbd-key" data-key="Down" data-ks="0xFF54">&darr;</button>
+      <button class="kbd-key" data-key="Right" data-ks="0xFF53">&rarr;</button>
+      <button class="kbd-key wide" data-key="PgDn" data-ks="0xFF56">PgDn</button>
+    </div>
+  </div>
 
   <div id="pastePanel">
     <div class="panel-header">
@@ -455,6 +590,107 @@
     window.sendCtrlAltDel = function() {
       if (rfb) rfb.sendCtrlAltDel();
     };
+
+    const modState = { shift: false, ctrl: false, alt: false, super: false, capslock: false };
+    const SHIFT_MAP = {
+      '`': '~', '1': '!', '2': '@', '3': '#', '4': '$', '5': '%', '6': '^', '7': '&',
+      '8': '*', '9': '(', '0': ')', '-': '_', '=': '+', '[': '{', ']': '}', '\\': '|',
+      ';': ':', "'": '"', ',': '<', '.': '>', '/': '?'
+    };
+
+    window.toggleKeyboard = function() {
+      const kbd = document.getElementById("onscreenKeyboard");
+      const btn = document.getElementById("btnKeyboard");
+      kbd.classList.toggle("open");
+      btn.classList.toggle("active");
+      if (!kbd.classList.contains("open")) {
+        releaseAllMods();
+      }
+    };
+
+    function releaseAllMods() {
+      Object.keys(modState).forEach(mod => {
+        if (modState[mod] && mod !== "capslock") {
+          modState[mod] = false;
+          updateModButtons();
+        }
+      });
+    }
+
+    function updateModButtons() {
+      document.querySelectorAll(".kbd-key[data-mod]").forEach(btn => {
+        const mod = btn.getAttribute("data-mod");
+        btn.classList.toggle("active", modState[mod]);
+      });
+    }
+
+    function sendModifiers(down) {
+      if (!rfb) return;
+      if (modState.ctrl)  rfb.sendKey(0xFFE3, "ControlLeft", down);
+      if (modState.alt)   rfb.sendKey(0xFFE9, "AltLeft", down);
+      if (modState.super) rfb.sendKey(0xFFEB, "SuperLeft", down);
+      if (modState.shift) rfb.sendKey(0xFFE1, "ShiftLeft", down);
+    }
+
+    document.getElementById("onscreenKeyboard").addEventListener("mousedown", function(e) {
+      const btn = e.target.closest(".kbd-key");
+      if (!btn || !rfb) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const mod = btn.getAttribute("data-mod");
+      if (mod) {
+        if (mod === "capslock") {
+          modState.capslock = !modState.capslock;
+          rfb.sendKey(0xFFE5, "CapsLock", true);
+          rfb.sendKey(0xFFE5, "CapsLock", false);
+        } else {
+          modState[mod] = !modState[mod];
+        }
+        updateModButtons();
+        return;
+      }
+
+      const ksHex = btn.getAttribute("data-ks");
+      if (ksHex) {
+        const ks = parseInt(ksHex, 16);
+        sendModifiers(true);
+        rfb.sendKey(ks, null, true);
+        rfb.sendKey(ks, null, false);
+        sendModifiers(false);
+        releaseAllMods();
+        updateModButtons();
+        return;
+      }
+
+      let ch = btn.getAttribute("data-char");
+      if (ch) {
+        const isLetter = ch.length === 1 && ch >= 'a' && ch <= 'z';
+        if (modState.shift && SHIFT_MAP[ch]) {
+          ch = SHIFT_MAP[ch];
+        } else if (isLetter) {
+          const upper = (modState.shift !== modState.capslock);
+          if (upper) ch = ch.toUpperCase();
+        }
+        const keysym = CHAR_TO_KEYSYM[ch];
+        if (keysym) {
+          const needShift = SHIFT_CHARS.has(ch);
+          sendModifiers(true);
+          if (needShift && !modState.shift) rfb.sendKey(0xFFE1, "ShiftLeft", true);
+          rfb.sendKey(keysym, null, true);
+          rfb.sendKey(keysym, null, false);
+          if (needShift && !modState.shift) rfb.sendKey(0xFFE1, "ShiftLeft", false);
+          sendModifiers(false);
+        }
+        if (modState.shift) {
+          modState.shift = false;
+          updateModButtons();
+        }
+        releaseAllMods();
+        updateModButtons();
+        return;
+      }
+    });
   </script>
 </body>
 </html>

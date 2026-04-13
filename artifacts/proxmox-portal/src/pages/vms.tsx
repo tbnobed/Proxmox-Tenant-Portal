@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   useListVms,
   useListClusters,
@@ -11,10 +11,11 @@ import {
 import type { Vm } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Monitor, Play, Square, RotateCcw, Trash2, Plus, CheckSquare, Loader2, Wifi, WifiOff } from "lucide-react";
+import { Monitor, Play, Square, RotateCcw, Trash2, Plus, CheckSquare, Loader2, Wifi, WifiOff, Search, X } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useVmListWebSocket, type VmStatusUpdate } from "@/hooks/use-websocket";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -53,13 +54,27 @@ export default function VmsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkAction, setBulkAction] = useState<string | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{ total: number; done: number; errors: number } | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const params: Record<string, number | string> = {};
   if (clusterFilter !== "all") params.clusterId = parseInt(clusterFilter, 10);
   if (tenantFilter !== "all") params.tenantId = parseInt(tenantFilter, 10);
   if (statusFilter !== "all") params.status = statusFilter;
 
-  const { data: vms, isLoading } = useListVms(params);
+  const { data: rawVms, isLoading } = useListVms(params);
+
+  const vms = useMemo(() => {
+    if (!rawVms || !searchQuery.trim()) return rawVms;
+    const q = searchQuery.toLowerCase().trim();
+    return rawVms.filter(vm =>
+      vm.name.toLowerCase().includes(q) ||
+      String(vm.vmId).includes(q) ||
+      vm.node?.toLowerCase().includes(q) ||
+      vm.clusterName?.toLowerCase().includes(q) ||
+      vm.tenantName?.toLowerCase().includes(q) ||
+      vm.type?.toLowerCase().includes(q)
+    );
+  }, [rawVms, searchQuery]);
   const { data: clusters } = useListClusters();
   const { data: tenants } = useListTenants();
   const qc = useQueryClient();
@@ -171,7 +186,7 @@ export default function VmsPage() {
   const { user } = useAuth();
   const canCreate = user?.role === "admin" || user?.role === "operator";
   const canAct = user?.role === "admin" || user?.role === "operator";
-  const hasFilters = clusterFilter !== "all" || tenantFilter !== "all" || statusFilter !== "all";
+  const hasFilters = clusterFilter !== "all" || tenantFilter !== "all" || statusFilter !== "all" || searchQuery !== "";
   const allSelected = !!vms && vms.length > 0 && selectedIds.size === vms.length;
   const someSelected = selectedIds.size > 0;
 
@@ -205,7 +220,24 @@ export default function VmsPage() {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="relative w-64">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Search VMs by name, ID, node..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="h-8 text-xs pl-8 pr-8"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
         <Select value={clusterFilter} onValueChange={setClusterFilter}>
           <SelectTrigger className="w-40 h-8 text-xs">
             <SelectValue placeholder="All clusters" />
@@ -236,7 +268,7 @@ export default function VmsPage() {
           </SelectContent>
         </Select>
         {hasFilters && (
-          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setClusterFilter("all"); setTenantFilter("all"); setStatusFilter("all"); }}>
+          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setSearchQuery(""); setClusterFilter("all"); setTenantFilter("all"); setStatusFilter("all"); }}>
             Clear filters
           </Button>
         )}
