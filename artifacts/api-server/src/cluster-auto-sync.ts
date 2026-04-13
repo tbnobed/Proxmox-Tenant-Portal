@@ -1,6 +1,7 @@
 import { db, clustersTable, vmsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { syncFromProxmox } from "./proxmox-client";
+import { broadcastVmListUpdate } from "./live-updates";
 
 const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -107,6 +108,7 @@ async function syncAllClusters(): Promise<void> {
     }
 
     console.log("[Auto-Sync] Complete");
+    broadcastVmListUpdate();
   } catch (err) {
     console.error("[Auto-Sync] Error:", err);
   } finally {

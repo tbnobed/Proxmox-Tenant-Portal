@@ -18,6 +18,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+import ResourceGraphs from "@/components/resource-graphs";
+import { useVmDetailWebSocket, type VmStatusUpdate } from "@/hooks/use-websocket";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 
@@ -386,6 +388,14 @@ export default function VmDetailPage() {
 
   const vmUserAccess = allUserVmAccess?.filter(a => a.vmId === id) ?? [];
 
+  const handleStatusChange = useCallback((update: VmStatusUpdate) => {
+    qc.invalidateQueries({ queryKey: getGetVmQueryKey(id) });
+    qc.invalidateQueries({ queryKey: getListVmsQueryKey() });
+    qc.invalidateQueries({ queryKey: getGetDashboardStatsQueryKey() });
+  }, [id, qc]);
+
+  useVmDetailWebSocket(id, undefined, handleStatusChange);
+
   function handleAction(action: string) {
     setActioning(action);
     actionMutation.mutate({ id, data: { action } }, {
@@ -534,6 +544,7 @@ export default function VmDetailPage() {
         </div>
       )}
 
+      {vm && <ResourceGraphs vmId={vm.vmId} vmDbId={id} />}
       {vm && <MediaPanel vmId={id} vmType={vm.type} />}
       {vm && <SnapshotsPanel vmId={id} vmType={vm.type} />}
     </div>

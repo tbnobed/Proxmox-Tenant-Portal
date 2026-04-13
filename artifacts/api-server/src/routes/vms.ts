@@ -15,7 +15,8 @@ import {
   UpdateVmResponse,
   VmActionResponse,
 } from "@workspace/api-zod";
-import { performVmAction, getVncTicket, authenticate, listSnapshots, createSnapshot, deleteSnapshot, rollbackSnapshot, getVmMedia, unmountMedia } from "../proxmox-client";
+import { performVmAction, getVncTicket, authenticate, listSnapshots, createSnapshot, deleteSnapshot, rollbackSnapshot, getVmMedia, unmountMedia, getVmRrdData } from "../proxmox-client";
+import { broadcastVmStatusChange } from "../live-updates";
 import { createVncSession } from "../vnc-proxy";
 import { getSessionUser } from "../middleware/auth";
 import { requireAdmin, requireOperatorOrAdmin } from "../middleware/auth";
@@ -317,6 +318,7 @@ router.post("/vms/:id/action", async (req, res): Promise<void> => {
   }
 
   await db.update(vmsTable).set({ status: newStatus }).where(eq(vmsTable.id, vm.id));
+  broadcastVmStatusChange(vm.vmId, vm.id, newStatus, vm.name);
 
   const eventTypeMap: Record<string, string> = { start: "vm_start", stop: "vm_stop", reboot: "vm_reboot", shutdown: "vm_stop" };
   await db.insert(activityTable).values({
@@ -601,6 +603,39 @@ router.post("/vms/:id/media/:drive/unmount", requireOperatorOrAdmin, async (req,
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
     res.status(502).json({ error: `Failed to unmount media: ${errMsg}` });
+  }
+});
+
+router.get("/vms/:id/rrddata", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid VM id" }); return; }
+
+  const timeframe = (req.query.timeframe as string) || "hour";
+  if (!["hour", "day", "week", "month", "year"].includes(timeframe)) {
+    res.status(400).json({ error: "Invalid timeframe. Use: hour, day, week, month, year" });
+    return;
+  }
+
+  const result = await getVmWithCluster(id);
+  if (!result) { res.status(404).json({ error: "VM or cluster not found" }); return; }
+  const { vm, cluster } = result;
+
+  const sessionUser = getSessionUser(req);
+  if (sessionUser && sessionUser.userRole !== "admin") {
+    const hasAccess = await canAccessVm(sessionUser.userId, sessionUser.tenantId, vm.id);
+    if (!hasAccess) { res.status(403).json({ error: "Access denied" }); return; }
+  }
+
+  try {
+    const data = await getVmRrdData(
+      cluster.host, cluster.port, cluster.username, cluster.passwordHash,
+      cluster.realm, vm.node, vm.vmId, vm.type,
+      timeframe as "hour" | "day" | "week" | "month" | "year"
+    );
+    res.json(data);
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    res.status(502).json({ error: `Failed to fetch RRD data: ${errMsg}` });
   }
 });
 

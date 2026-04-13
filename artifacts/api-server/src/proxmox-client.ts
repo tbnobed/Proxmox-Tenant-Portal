@@ -775,3 +775,96 @@ export async function syncFromProxmox(
 
   return allVms;
 }
+
+export interface VmCurrentStatus {
+  status: string;
+  cpu: number;
+  mem: number;
+  maxmem: number;
+  disk: number;
+  maxdisk: number;
+  netin: number;
+  netout: number;
+  diskread: number;
+  diskwrite: number;
+  uptime: number;
+  name: string;
+  vmid: number;
+}
+
+export async function getVmCurrentStatus(
+  host: string,
+  port: number,
+  username: string,
+  password: string,
+  realm: string,
+  node: string,
+  vmId: number,
+  type: string
+): Promise<VmCurrentStatus> {
+  const auth = await authenticate(host, port, username, password, realm);
+  const vmType = type === "lxc" ? "lxc" : "qemu";
+  const path = `/api2/json/nodes/${node}/${vmType}/${vmId}/status/current`;
+  const data = await apiGet<any>(host, port, path, auth);
+  return {
+    status: data.status ?? "unknown",
+    cpu: typeof data.cpu === "number" ? data.cpu : 0,
+    mem: data.mem ?? 0,
+    maxmem: data.maxmem ?? 0,
+    disk: data.disk ?? 0,
+    maxdisk: data.maxdisk ?? 0,
+    netin: data.netin ?? 0,
+    netout: data.netout ?? 0,
+    diskread: data.diskread ?? 0,
+    diskwrite: data.diskwrite ?? 0,
+    uptime: data.uptime ?? 0,
+    name: data.name ?? `vm-${vmId}`,
+    vmid: data.vmid ?? vmId,
+  };
+}
+
+export interface RrdDataPoint {
+  time: number;
+  cpu?: number;
+  maxcpu?: number;
+  mem?: number;
+  maxmem?: number;
+  disk?: number;
+  maxdisk?: number;
+  netin?: number;
+  netout?: number;
+  diskread?: number;
+  diskwrite?: number;
+}
+
+export async function getVmRrdData(
+  host: string,
+  port: number,
+  username: string,
+  password: string,
+  realm: string,
+  node: string,
+  vmId: number,
+  type: string,
+  timeframe: "hour" | "day" | "week" | "month" | "year" = "hour"
+): Promise<RrdDataPoint[]> {
+  const auth = await authenticate(host, port, username, password, realm);
+  const vmType = type === "lxc" ? "lxc" : "qemu";
+  const path = `/api2/json/nodes/${node}/${vmType}/${vmId}/rrddata?timeframe=${timeframe}`;
+  const data = await apiGet<any[]>(host, port, path, auth);
+  return (data ?? [])
+    .filter((d: any) => d && typeof d.time === "number")
+    .map((d: any) => ({
+      time: d.time,
+      cpu: typeof d.cpu === "number" ? d.cpu : undefined,
+      maxcpu: typeof d.maxcpu === "number" ? d.maxcpu : undefined,
+      mem: typeof d.mem === "number" ? d.mem : undefined,
+      maxmem: typeof d.maxmem === "number" ? d.maxmem : undefined,
+      disk: typeof d.disk === "number" ? d.disk : undefined,
+      maxdisk: typeof d.maxdisk === "number" ? d.maxdisk : undefined,
+      netin: typeof d.netin === "number" ? d.netin : undefined,
+      netout: typeof d.netout === "number" ? d.netout : undefined,
+      diskread: typeof d.diskread === "number" ? d.diskread : undefined,
+      diskwrite: typeof d.diskwrite === "number" ? d.diskwrite : undefined,
+    }));
+}

@@ -45,19 +45,19 @@ if (isProduction) {
   app.set("trust proxy", 1);
 }
 
-app.use(
-  session({
-    secret: process.env["SESSION_SECRET"] || "proxmox-portal-dev-secret",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env["COOKIE_SECURE"] === "true",
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000,
-      sameSite: "lax",
-    },
-  }),
-);
+export const sessionMiddleware = session({
+  secret: process.env["SESSION_SECRET"] || "proxmox-portal-dev-secret",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env["COOKIE_SECURE"] === "true",
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000,
+    sameSite: "lax",
+  },
+});
+
+app.use(sessionMiddleware);
 
 app.use("/api", authRouter);
 app.use("/api", passwordResetRouter);

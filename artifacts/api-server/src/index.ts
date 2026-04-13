@@ -1,6 +1,7 @@
-import app from "./app";
+import app, { sessionMiddleware } from "./app";
 import { logger } from "./lib/logger";
 import { setupVncProxy, handleUpgrade } from "./vnc-proxy";
+import { setupLiveUpdates, handleLiveUpgrade } from "./live-updates";
 import { seedDefaultAdmin } from "./seed-admin";
 import { startHealthDigestScheduler } from "./health-digest";
 import { startClusterAutoSync } from "./cluster-auto-sync";
@@ -19,7 +20,8 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const wss = setupVncProxy();
+const vncWss = setupVncProxy();
+const liveWss = setupLiveUpdates();
 
 const server = app.listen(port, async (err) => {
   if (err) {
@@ -40,5 +42,12 @@ const server = app.listen(port, async (err) => {
 });
 
 server.on("upgrade", (req, socket, head) => {
-  handleUpgrade(wss, req, socket, head);
+  const url = new URL(req.url ?? "/", "http://localhost");
+  if (url.pathname === "/api/ws") {
+    handleLiveUpgrade(liveWss, req, socket, head, sessionMiddleware);
+  } else if (url.pathname === "/api/vnc") {
+    handleUpgrade(vncWss, req, socket, head);
+  } else {
+    socket.destroy();
+  }
 });

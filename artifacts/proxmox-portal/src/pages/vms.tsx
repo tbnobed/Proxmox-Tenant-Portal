@@ -11,8 +11,9 @@ import {
 import type { Vm } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Monitor, Play, Square, RotateCcw, Trash2, Plus, CheckSquare, Loader2 } from "lucide-react";
+import { Monitor, Play, Square, RotateCcw, Trash2, Plus, CheckSquare, Loader2, Wifi, WifiOff } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useVmListWebSocket, type VmStatusUpdate } from "@/hooks/use-websocket";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -65,6 +66,13 @@ export default function VmsPage() {
   const { toast } = useToast();
   const actionMutation = useVmAction();
   const deleteMutation = useDeleteVm();
+
+  const handleWsStatusChange = useCallback((update: VmStatusUpdate) => {
+    qc.invalidateQueries({ queryKey: getListVmsQueryKey() });
+    qc.invalidateQueries({ queryKey: getGetDashboardStatsQueryKey() });
+  }, [qc]);
+
+  const { connected: wsConnected } = useVmListWebSocket(handleWsStatusChange);
 
   function handleAction(vm: Vm, action: string) {
     setActioningId(vm.id);
@@ -174,7 +182,18 @@ export default function VmsPage() {
     <div className="space-y-6 min-w-0">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold text-foreground">Virtual Machines</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold text-foreground">Virtual Machines</h1>
+            {wsConnected ? (
+              <span className="flex items-center gap-1 text-[10px] text-green-500" title="Live updates active">
+                <Wifi className="w-3 h-3" /> Live
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground" title="Live updates disconnected">
+                <WifiOff className="w-3 h-3" />
+              </span>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground mt-1">Manage VMs across all clusters</p>
         </div>
         {canCreate && (
