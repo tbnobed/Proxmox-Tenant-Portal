@@ -105,6 +105,20 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     }
   }
 
+  if (user.twoFactorRequired && !user.twoFactorEnabled) {
+    (req.session as any).pendingSetupUserId = user.id;
+    (req.session as any).pendingSetupOnly = true;
+
+    const secret = generateSecret();
+    const otpauth = generateURI({ issuer: "ProxHub", label: user.email || user.username, secret, type: "totp" });
+    const encryptedSecret = encrypt2FASecret(secret);
+    await db.update(usersTable).set({ twoFactorSecret: encryptedSecret }).where(eq(usersTable.id, user.id));
+    const qrDataUrl = await QRCode.toDataURL(otpauth);
+
+    res.json({ requiresTwoFactorSetup: true, qrCode: qrDataUrl, secret });
+    return;
+  }
+
   const now = new Date();
   await db.update(usersTable).set({ lastLoginAt: now }).where(eq(usersTable.id, user.id));
 
@@ -178,6 +192,63 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     tenantId: user.tenantId,
     tenantName,
     twoFactorEnabled: user.twoFactorEnabled,
+  });
+});
+
+router.post("/auth/2fa/complete-setup", async (req, res): Promise<void> => {
+  const pendingUserId = (req.session as any)?.pendingSetupUserId;
+  if (!pendingUserId || !(req.session as any)?.pendingSetupOnly) {
+    res.status(400).json({ error: "No pending 2FA setup" });
+    return;
+  }
+
+  const { code } = req.body;
+  if (!code) {
+    res.status(400).json({ error: "Verification code is required" });
+    return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, pendingUserId));
+  if (!user || !user.twoFactorSecret) {
+    res.status(400).json({ error: "2FA setup not found. Please try logging in again." });
+    return;
+  }
+
+  const decryptedSecret = decrypt2FASecret(user.twoFactorSecret);
+  const result = verifySync({ token: code, secret: decryptedSecret });
+  if (!result.valid) {
+    res.status(400).json({ error: "Invalid verification code. Please try again." });
+    return;
+  }
+
+  await db.update(usersTable).set({ twoFactorEnabled: true }).where(eq(usersTable.id, pendingUserId));
+
+  const now = new Date();
+  await db.update(usersTable).set({ lastLoginAt: now }).where(eq(usersTable.id, user.id));
+
+  const ipAddress = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
+  const userAgent = req.headers["user-agent"] || null;
+  const [sessionRecord] = await db.insert(userSessionsTable).values({
+    userId: user.id,
+    loginAt: now,
+    ipAddress,
+    userAgent,
+  }).returning();
+
+  delete (req.session as any).pendingSetupUserId;
+  delete (req.session as any).pendingSetupOnly;
+  (req.session as any).userId = user.id;
+  (req.session as any).userRole = user.role;
+  (req.session as any).tenantId = user.tenantId;
+  (req.session as any).sessionRecordId = sessionRecord.id;
+
+  res.json({
+    ok: true,
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    fullName: user.fullName,
+    role: user.role,
   });
 });
 

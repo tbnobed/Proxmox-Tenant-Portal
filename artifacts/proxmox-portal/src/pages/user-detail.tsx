@@ -160,9 +160,13 @@ export default function UserDetailPage() {
                 <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium bg-green-500/10 text-green-400 border-green-500/20">
                   Enabled
                 </span>
+              ) : user.twoFactorRequired ? (
+                <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium bg-yellow-500/10 text-yellow-500 border-yellow-500/20">
+                  Required (pending setup)
+                </span>
               ) : (
                 <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium bg-muted text-muted-foreground border-border">
-                  Disabled
+                  Not required
                 </span>
               )}
             </div>
@@ -182,9 +186,13 @@ export default function UserDetailPage() {
               <p className="text-sm text-muted-foreground">
                 This user has two-factor authentication enabled. As an admin, you can disable it if the user loses access to their authenticator app.
               </p>
+            ) : user.twoFactorRequired ? (
+              <p className="text-sm text-muted-foreground">
+                This user will be prompted to set up two-factor authentication on their next login.
+              </p>
             ) : (
               <p className="text-sm text-muted-foreground">
-                This user has not enabled two-factor authentication. They can enable it from their Security settings page.
+                This user has not set up two-factor authentication. Use the Edit User dialog to require it.
               </p>
             )}
           </div>

@@ -1,8 +1,9 @@
 import { useState, useRef, type FormEvent } from "react";
-import { Loader2, AlertCircle, ShieldCheck } from "lucide-react";
+import { Loader2, AlertCircle, ShieldCheck, Copy, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 const logoImg = `${import.meta.env.BASE_URL}proxhub-logo.png`;
+const base = import.meta.env.BASE_URL || "/";
 
 interface LoginPageProps {
   onLogin: () => void;
@@ -18,13 +19,20 @@ export default function LoginPage({ onLogin, onForgotPassword }: LoginPageProps)
   const [totpCode, setTotpCode] = useState("");
   const totpRef = useRef<HTMLInputElement>(null);
 
+  const [requiresSetup, setRequiresSetup] = useState(false);
+  const [setupQrCode, setSetupQrCode] = useState<string | null>(null);
+  const [setupSecret, setSetupSecret] = useState<string | null>(null);
+  const [setupCode, setSetupCode] = useState("");
+  const [showSecret, setShowSecret] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const setupRef = useRef<HTMLInputElement>(null);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      const base = import.meta.env.BASE_URL || "/";
       const body: any = { username, password };
       if (requiresTwoFactor) {
         body.totpCode = totpCode;
@@ -55,6 +63,15 @@ export default function LoginPage({ onLogin, onForgotPassword }: LoginPageProps)
         return;
       }
 
+      if (data.requiresTwoFactorSetup) {
+        setRequiresSetup(true);
+        setSetupQrCode(data.qrCode);
+        setSetupSecret(data.secret);
+        setLoading(false);
+        setTimeout(() => setupRef.current?.focus(), 100);
+        return;
+      }
+
       onLogin();
     } catch {
       setError("Unable to connect to the server");
@@ -62,9 +79,50 @@ export default function LoginPage({ onLogin, onForgotPassword }: LoginPageProps)
     }
   }
 
+  async function handleCompleteSetup(e: FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`${base}api/auth/2fa/complete-setup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ code: setupCode }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Verification failed");
+        setSetupCode("");
+        setLoading(false);
+        return;
+      }
+
+      onLogin();
+    } catch {
+      setError("Unable to connect to the server");
+      setLoading(false);
+    }
+  }
+
+  function copySecret() {
+    if (setupSecret) {
+      navigator.clipboard.writeText(setupSecret);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
   function handleBackToLogin() {
     setRequiresTwoFactor(false);
+    setRequiresSetup(false);
     setTotpCode("");
+    setSetupCode("");
+    setSetupQrCode(null);
+    setSetupSecret(null);
     setError(null);
   }
 
@@ -89,10 +147,102 @@ export default function LoginPage({ onLogin, onForgotPassword }: LoginPageProps)
             <img src={logoImg} alt="ProxHub" className="h-28 w-auto rounded-lg" />
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            {requiresTwoFactor ? "Enter your authentication code" : "Sign in to manage your infrastructure"}
+            {requiresSetup ? "Set up two-factor authentication" : requiresTwoFactor ? "Enter your authentication code" : "Sign in to manage your infrastructure"}
           </p>
         </div>
 
+        {requiresSetup ? (
+          <form onSubmit={handleCompleteSetup} className="rounded-lg border border-border bg-card p-6 space-y-4">
+            {error && (
+              <div className="rounded-md border border-red-500/30 bg-red-500/10 p-3 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                <p className="text-sm text-red-400">{error}</p>
+              </div>
+            )}
+
+            <div className="rounded-md border border-olive/30 bg-olive/10 p-3">
+              <p className="text-sm text-sand font-medium">Your administrator requires two-factor authentication on your account.</p>
+              <p className="text-xs text-muted-foreground mt-1">Set up your authenticator app to continue signing in.</p>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-foreground mb-2">Step 1: Scan the QR Code</h3>
+              <p className="text-xs text-muted-foreground mb-3">
+                Open your authenticator app (Google Authenticator, Authy, etc.) and scan this code.
+              </p>
+              {setupQrCode && (
+                <div className="inline-block p-3 bg-white rounded-lg">
+                  <img src={setupQrCode} alt="2FA QR Code" className="w-40 h-40" />
+                </div>
+              )}
+            </div>
+
+            {setupSecret && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1.5">
+                  Can't scan? Enter this key manually:
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-muted text-xs font-mono text-foreground">
+                    {showSecret ? setupSecret : "••••••••••••••••"}
+                    <button
+                      type="button"
+                      onClick={() => setShowSecret(!showSecret)}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      {showSecret ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                    </button>
+                  </code>
+                  <Button type="button" variant="outline" size="sm" onClick={copySecret} className="h-7 text-xs">
+                    <Copy className="w-3 h-3 mr-1" />
+                    {copied ? "Copied!" : "Copy"}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <h3 className="text-sm font-semibold text-foreground mb-2">Step 2: Enter Verification Code</h3>
+              <Input
+                ref={setupRef}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={setupCode}
+                onChange={(e) => setSetupCode(e.target.value.replace(/\D/g, ""))}
+                placeholder="000000"
+                autoComplete="one-time-code"
+                required
+                className="text-center text-lg tracking-[0.5em] font-mono"
+              />
+            </div>
+
+            <Button type="submit" className="w-full" disabled={loading || setupCode.length !== 6}>
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-4 h-4 mr-1.5" />
+                  Enable 2FA & Sign In
+                </>
+              )}
+            </Button>
+
+            <div className="text-center pt-1">
+              <button
+                type="button"
+                onClick={handleBackToLogin}
+                className="text-xs text-muted-foreground hover:text-sand transition-colors"
+              >
+                Back to login
+              </button>
+            </div>
+          </form>
+        ) : (
         <form onSubmit={handleSubmit} className="rounded-lg border border-border bg-card p-6 space-y-4">
           {error && (
             <div className="rounded-md border border-red-500/30 bg-red-500/10 p-3 flex items-center gap-2">
@@ -211,6 +361,7 @@ export default function LoginPage({ onLogin, onForgotPassword }: LoginPageProps)
             </>
           )}
         </form>
+        )}
       </div>
     </div>
   );

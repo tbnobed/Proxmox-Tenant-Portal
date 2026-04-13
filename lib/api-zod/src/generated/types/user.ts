@@ -22,6 +22,7 @@ export interface User {
   /** @nullable */
   lastLoginAt?: string | null;
   twoFactorEnabled: boolean;
+  twoFactorRequired: boolean;
   createdAt: string;
   updatedAt: string;
 }

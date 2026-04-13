@@ -21,4 +21,6 @@ export interface UpdateUserBody {
   status?: string | null;
   /** @nullable */
   password?: string | null;
+  /** @nullable */
+  twoFactorRequired?: boolean | null;
 }

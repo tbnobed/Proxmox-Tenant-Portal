@@ -1092,6 +1092,8 @@ components:
           type: ["string", "null"]
         twoFactorEnabled:
           type: boolean
+        twoFactorRequired:
+          type: boolean
         createdAt:
           type: string
         updatedAt:
@@ -1104,6 +1106,7 @@ components:
         - status
         - vmCount
         - twoFactorEnabled
+        - twoFactorRequired
         - createdAt
         - updatedAt
 
@@ -1162,6 +1165,8 @@ components:
           type: ["string", "null"]
         password:
           type: ["string", "null"]
+        twoFactorRequired:
+          type: ["boolean", "null"]
 
     Vm:
       type: object

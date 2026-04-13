@@ -559,7 +559,7 @@ export default function UsersPage() {
           <DialogHeader><DialogTitle>Edit User</DialogTitle></DialogHeader>
           {UserForm}
           {editUser && (
-            <div className="rounded-md border border-border p-3 space-y-2">
+            <div className="rounded-md border border-border p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {editUser.twoFactorEnabled ? (
@@ -570,11 +570,15 @@ export default function UsersPage() {
                   <span className="text-sm font-medium">Two-Factor Authentication</span>
                   {editUser.twoFactorEnabled ? (
                     <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium bg-green-500/10 text-green-400 border-green-500/20">
-                      Enabled
+                      Active
+                    </span>
+                  ) : editUser.twoFactorRequired ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium bg-yellow-500/10 text-yellow-500 border-yellow-500/20">
+                      Required (pending setup)
                     </span>
                   ) : (
                     <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium bg-muted text-muted-foreground border-border">
-                      Disabled
+                      Not required
                     </span>
                   )}
                 </div>
@@ -593,8 +597,40 @@ export default function UsersPage() {
               <p className="text-xs text-muted-foreground">
                 {editUser.twoFactorEnabled
                   ? "This user has 2FA enabled. You can disable it if they lose access to their authenticator."
-                  : "This user has not set up 2FA. They can enable it from their Security settings."}
+                  : editUser.twoFactorRequired
+                  ? "This user will be prompted to set up 2FA on their next login."
+                  : "This user has not set up 2FA."}
               </p>
+              {!editUser.twoFactorEnabled && (
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editUser.twoFactorRequired}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        updateMutation.mutate(
+                          { id: editUser.id, data: { twoFactorRequired: checked } },
+                          {
+                            onSuccess: () => {
+                              qc.invalidateQueries({ queryKey: getListUsersQueryKey() });
+                              setEditUser({ ...editUser, twoFactorRequired: checked });
+                              toast({
+                                title: checked ? "2FA Required" : "2FA Requirement Removed",
+                                description: checked
+                                  ? `${editUser.fullName ?? editUser.username} will be prompted to set up 2FA on their next login.`
+                                  : `2FA is no longer required for ${editUser.fullName ?? editUser.username}.`,
+                              });
+                            },
+                          }
+                        );
+                      }}
+                      className="rounded border-border"
+                    />
+                    <span className="text-xs text-foreground">Require 2FA on next login</span>
+                  </label>
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>

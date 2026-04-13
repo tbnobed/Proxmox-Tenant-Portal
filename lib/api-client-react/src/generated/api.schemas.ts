@@ -117,6 +117,7 @@ export interface User {
   /** @nullable */
   lastLoginAt?: string | null;
   twoFactorEnabled: boolean;
+  twoFactorRequired: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -158,6 +159,8 @@ export interface UpdateUserBody {
   status?: string | null;
   /** @nullable */
   password?: string | null;
+  /** @nullable */
+  twoFactorRequired?: boolean | null;
 }
 
 export interface Vm {

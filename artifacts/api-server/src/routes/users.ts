@@ -33,6 +33,7 @@ router.get("/users", async (_req, res): Promise<void> => {
     vmCount: vcMap[u.id] ?? 0,
     lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
     twoFactorEnabled: u.twoFactorEnabled,
+    twoFactorRequired: u.twoFactorRequired,
     createdAt: u.createdAt.toISOString(),
     updatedAt: u.updatedAt.toISOString(),
   }));
@@ -59,6 +60,7 @@ router.post("/users", async (req, res): Promise<void> => {
     vmCount: 0,
     lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
     twoFactorEnabled: user.twoFactorEnabled,
+    twoFactorRequired: user.twoFactorRequired,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   }));
@@ -88,6 +90,7 @@ router.get("/users/:id", async (req, res): Promise<void> => {
     vmCount: vc?.count ?? 0,
     lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
     twoFactorEnabled: user.twoFactorEnabled,
+    twoFactorRequired: user.twoFactorRequired,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   }));
@@ -131,7 +134,7 @@ router.patch("/users/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { password, ...rest } = parsed.data;
+  const { password, twoFactorRequired, ...rest } = parsed.data;
   const update: Record<string, unknown> = {};
   if (rest.username != null) update.username = rest.username;
   if (rest.email != null) update.email = rest.email;
@@ -140,6 +143,7 @@ router.patch("/users/:id", async (req, res): Promise<void> => {
   if (rest.tenantId !== undefined) update.tenantId = rest.tenantId;
   if (rest.status != null) update.status = rest.status;
   if (password != null) update.passwordHash = await createHashedPassword(password);
+  if (twoFactorRequired != null) update.twoFactorRequired = twoFactorRequired;
 
   const [user] = await db.update(usersTable).set(update).where(eq(usersTable.id, params.data.id)).returning();
   if (!user) {
@@ -154,6 +158,7 @@ router.patch("/users/:id", async (req, res): Promise<void> => {
     vmCount: vc?.count ?? 0,
     lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
     twoFactorEnabled: user.twoFactorEnabled,
+    twoFactorRequired: user.twoFactorRequired,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   }));
@@ -176,10 +181,6 @@ router.post("/users/:id/2fa/disable", async (req, res): Promise<void> => {
   }
   await db.update(usersTable).set({ twoFactorEnabled: false, twoFactorSecret: null }).where(eq(usersTable.id, params.data.id));
   res.json({ ok: true, message: `2FA disabled for ${user.username}` });
-});
-
-router.post("/users/:id/2fa/enable-requirement", async (req, res): Promise<void> => {
-  res.status(400).json({ error: "Users must enable 2FA themselves by scanning the QR code in Security settings" });
 });
 
 router.delete("/users/:id", async (req, res): Promise<void> => {

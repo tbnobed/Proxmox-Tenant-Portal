@@ -222,6 +222,7 @@ export const ListUsersResponseItem = zod.object({
   vmCount: zod.number(),
   lastLoginAt: zod.string().nullish(),
   twoFactorEnabled: zod.boolean(),
+  twoFactorRequired: zod.boolean(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -258,6 +259,7 @@ export const GetUserResponse = zod.object({
   vmCount: zod.number(),
   lastLoginAt: zod.string().nullish(),
   twoFactorEnabled: zod.boolean(),
+  twoFactorRequired: zod.boolean(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -277,6 +279,7 @@ export const UpdateUserBody = zod.object({
   tenantId: zod.number().nullish(),
   status: zod.string().nullish(),
   password: zod.string().nullish(),
+  twoFactorRequired: zod.boolean().nullish(),
 });
 
 export const UpdateUserResponse = zod.object({
@@ -291,6 +294,7 @@ export const UpdateUserResponse = zod.object({
   vmCount: zod.number(),
   lastLoginAt: zod.string().nullish(),
   twoFactorEnabled: zod.boolean(),
+  twoFactorRequired: zod.boolean(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
