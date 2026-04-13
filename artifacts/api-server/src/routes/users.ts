@@ -32,6 +32,7 @@ router.get("/users", async (_req, res): Promise<void> => {
     tenantName: u.tenantId ? tenantMap[u.tenantId] ?? null : null,
     vmCount: vcMap[u.id] ?? 0,
     lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
+    twoFactorEnabled: u.twoFactorEnabled,
     createdAt: u.createdAt.toISOString(),
     updatedAt: u.updatedAt.toISOString(),
   }));
@@ -57,6 +58,7 @@ router.post("/users", async (req, res): Promise<void> => {
     tenantName: tenant[0]?.name ?? null,
     vmCount: 0,
     lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+    twoFactorEnabled: user.twoFactorEnabled,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   }));
@@ -85,6 +87,7 @@ router.get("/users/:id", async (req, res): Promise<void> => {
     tenantName: tenant[0]?.name ?? null,
     vmCount: vc?.count ?? 0,
     lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+    twoFactorEnabled: user.twoFactorEnabled,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   }));
@@ -150,9 +153,33 @@ router.patch("/users/:id", async (req, res): Promise<void> => {
     tenantName: tenant[0]?.name ?? null,
     vmCount: vc?.count ?? 0,
     lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+    twoFactorEnabled: user.twoFactorEnabled,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   }));
+});
+
+router.post("/users/:id/2fa/disable", async (req, res): Promise<void> => {
+  const params = DeleteUserParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, params.data.id));
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  if (!user.twoFactorEnabled) {
+    res.status(400).json({ error: "Two-factor authentication is not enabled for this user" });
+    return;
+  }
+  await db.update(usersTable).set({ twoFactorEnabled: false, twoFactorSecret: null }).where(eq(usersTable.id, params.data.id));
+  res.json({ ok: true, message: `2FA disabled for ${user.username}` });
+});
+
+router.post("/users/:id/2fa/enable-requirement", async (req, res): Promise<void> => {
+  res.status(400).json({ error: "Users must enable 2FA themselves by scanning the QR code in Security settings" });
 });
 
 router.delete("/users/:id", async (req, res): Promise<void> => {

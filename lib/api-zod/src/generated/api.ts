@@ -221,6 +221,7 @@ export const ListUsersResponseItem = zod.object({
   status: zod.string(),
   vmCount: zod.number(),
   lastLoginAt: zod.string().nullish(),
+  twoFactorEnabled: zod.boolean(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -256,6 +257,7 @@ export const GetUserResponse = zod.object({
   status: zod.string(),
   vmCount: zod.number(),
   lastLoginAt: zod.string().nullish(),
+  twoFactorEnabled: zod.boolean(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -288,24 +290,44 @@ export const UpdateUserResponse = zod.object({
   status: zod.string(),
   vmCount: zod.number(),
   lastLoginAt: zod.string().nullish(),
+  twoFactorEnabled: zod.boolean(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
-
-export const UserSessionItem = zod.object({
-  id: zod.number(),
-  loginAt: zod.string(),
-  logoutAt: zod.string().nullish(),
-  ipAddress: zod.string().nullish(),
-  userAgent: zod.string().nullish(),
-});
-export const ListUserSessionsResponse = zod.array(UserSessionItem);
 
 /**
  * @summary Delete a user
  */
 export const DeleteUserParams = zod.object({
   id: zod.coerce.number(),
+});
+
+/**
+ * @summary List login sessions for a user
+ */
+export const ListUserSessionsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListUserSessionsResponseItem = zod.object({
+  id: zod.number(),
+  loginAt: zod.string(),
+  logoutAt: zod.string().nullish(),
+  ipAddress: zod.string().nullish(),
+  userAgent: zod.string().nullish(),
+});
+export const ListUserSessionsResponse = zod.array(ListUserSessionsResponseItem);
+
+/**
+ * @summary Admin disable 2FA for a user
+ */
+export const DisableUser2faParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DisableUser2faResponse = zod.object({
+  ok: zod.boolean(),
+  message: zod.string(),
 });
 
 /**

@@ -10,7 +10,7 @@ import {
 import type { User, CreateUserBody, UpdateUserBody } from "@workspace/api-client-react";
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Plus, Pencil, Trash2, Users, Monitor, Mail, Loader2, RefreshCw, X, Clock, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Send } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Monitor, Mail, Loader2, RefreshCw, X, Clock, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Send, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -347,6 +347,11 @@ export default function UsersPage() {
                     </Link>
                     <RoleBadge role={u.role} />
                     <StatusBadge status={u.status} />
+                    {u.twoFactorEnabled && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium bg-green-500/10 text-green-400 border-green-500/20 flex items-center gap-1">
+                        <ShieldCheck className="w-2.5 h-2.5" /> 2FA
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center shrink-0">
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(u)}>

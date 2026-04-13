@@ -25,6 +25,7 @@ import type {
   CreateUserBody,
   CreateVmBody,
   DashboardStats,
+  DisableUser2fa200,
   ErrorResponse,
   GrantTenantVmAccessBody,
   GrantUserVmAccessBody,
@@ -1536,6 +1537,177 @@ export const useDeleteUser = <
   TContext
 > => {
   return useMutation(getDeleteUserMutationOptions(options));
+};
+
+/**
+ * @summary List login sessions for a user
+ */
+export const getListUserSessionsUrl = (id: number) => {
+  return `/api/users/${id}/sessions`;
+};
+
+export const listUserSessions = async (
+  id: number,
+  options?: RequestInit,
+): Promise<UserSessionItem[]> => {
+  return customFetch<UserSessionItem[]>(getListUserSessionsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListUserSessionsQueryKey = (id: number) => {
+  return [`/api/users/${id}/sessions`] as const;
+};
+
+export const getListUserSessionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listUserSessions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listUserSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListUserSessionsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listUserSessions>>
+  > = ({ signal }) => listUserSessions(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listUserSessions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListUserSessionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listUserSessions>>
+>;
+export type ListUserSessionsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List login sessions for a user
+ */
+
+export function useListUserSessions<
+  TData = Awaited<ReturnType<typeof listUserSessions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listUserSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListUserSessionsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Admin disable 2FA for a user
+ */
+export const getDisableUser2faUrl = (id: number) => {
+  return `/api/users/${id}/2fa/disable`;
+};
+
+export const disableUser2fa = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DisableUser2fa200> => {
+  return customFetch<DisableUser2fa200>(getDisableUser2faUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getDisableUser2faMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disableUser2fa>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof disableUser2fa>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["disableUser2fa"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof disableUser2fa>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return disableUser2fa(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DisableUser2faMutationResult = NonNullable<
+  Awaited<ReturnType<typeof disableUser2fa>>
+>;
+
+export type DisableUser2faMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Admin disable 2FA for a user
+ */
+export const useDisableUser2fa = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disableUser2fa>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof disableUser2fa>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDisableUser2faMutationOptions(options));
 };
 
 /**
@@ -3117,59 +3289,3 @@ export const useReviewRequest = <
 > => {
   return useMutation(getReviewRequestMutationOptions(options));
 };
-
-export const getListUserSessionsUrl = (id: number) => {
-  return `/api/users/${id}/sessions`;
-};
-
-export const listUserSessions = async (
-  id: number,
-  options?: RequestInit,
-): Promise<UserSessionItem[]> => {
-  return customFetch<UserSessionItem[]>(getListUserSessionsUrl(id), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getListUserSessionsQueryKey = (id: number) => {
-  return [`/api/users/${id}/sessions`] as const;
-};
-
-export const getListUserSessionsQueryOptions = <
-  TData = Awaited<ReturnType<typeof listUserSessions>>,
-  TError = ErrorType<unknown>,
->(
-  id: number,
-  options?: {
-    query?: UseQueryOptions<Awaited<ReturnType<typeof listUserSessions>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-  const queryKey = queryOptions?.queryKey ?? getListUserSessionsQueryKey(id);
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof listUserSessions>>> = ({ signal }) =>
-    listUserSessions(id, { signal, ...requestOptions });
-  return { queryKey, queryFn, enabled: !!id, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof listUserSessions>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
-
-export function useListUserSessions<
-  TData = Awaited<ReturnType<typeof listUserSessions>>,
-  TError = ErrorType<unknown>,
->(
-  id: number,
-  options?: {
-    query?: UseQueryOptions<Awaited<ReturnType<typeof listUserSessions>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
-  },
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListUserSessionsQueryOptions(id, options);
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
-  return { ...query, queryKey: queryOptions.queryKey };
-}

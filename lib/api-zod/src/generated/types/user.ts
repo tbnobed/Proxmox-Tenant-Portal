@@ -19,6 +19,9 @@ export interface User {
   tenantName?: string | null;
   status: string;
   vmCount: number;
+  /** @nullable */
+  lastLoginAt?: string | null;
+  twoFactorEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }

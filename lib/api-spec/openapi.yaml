@@ -425,6 +425,72 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /users/{id}/sessions:
+    get:
+      operationId: listUserSessions
+      tags: [users]
+      summary: List login sessions for a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Session list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserSessionItem"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/{id}/2fa/disable:
+    post:
+      operationId: disableUser2fa
+      tags: [users]
+      summary: Admin disable 2FA for a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 2FA disabled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  message:
+                    type: string
+                required:
+                  - ok
+                  - message
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # VMs
   /vms:
     get:
@@ -1022,6 +1088,10 @@ components:
           type: string
         vmCount:
           type: integer
+        lastLoginAt:
+          type: ["string", "null"]
+        twoFactorEnabled:
+          type: boolean
         createdAt:
           type: string
         updatedAt:
@@ -1033,8 +1103,26 @@ components:
         - role
         - status
         - vmCount
+        - twoFactorEnabled
         - createdAt
         - updatedAt
+
+    UserSessionItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        loginAt:
+          type: string
+        logoutAt:
+          type: ["string", "null"]
+        ipAddress:
+          type: ["string", "null"]
+        userAgent:
+          type: ["string", "null"]
+      required:
+        - id
+        - loginAt
 
     CreateUserBody:
       type: object

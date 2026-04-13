@@ -1,7 +1,12 @@
+import { useState } from "react";
 import { useParams, Link } from "wouter";
-import { useGetUser, useListUserVmAccess, useListUserSessions } from "@workspace/api-client-react";
-import { ArrowLeft, Monitor, Building2, Clock, Globe, Smartphone } from "lucide-react";
+import { useGetUser, useListUserVmAccess, useListUserSessions, useDisableUser2fa, getGetUserQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Monitor, Building2, Clock, Globe, Smartphone, ShieldCheck, ShieldOff, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 function Badge({ label, className }: { label: string; className?: string }) {
@@ -58,6 +63,22 @@ export default function UserDetailPage() {
   const { data: user, isLoading } = useGetUser(id, { query: { enabled: !!id } });
   const { data: allUserVmAccess } = useListUserVmAccess();
   const { data: sessions, isLoading: sessionsLoading } = useListUserSessions(id, { query: { enabled: !!id } });
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [disable2FAOpen, setDisable2FAOpen] = useState(false);
+
+  const disable2FAMutation = useDisableUser2fa({
+    mutation: {
+      onSuccess: (data) => {
+        qc.invalidateQueries({ queryKey: getGetUserQueryKey(id) });
+        setDisable2FAOpen(false);
+        toast({ title: "2FA Disabled", description: data.message });
+      },
+      onError: (err: Error) => {
+        toast({ title: "Error", description: err.message, variant: "destructive" });
+      },
+    },
+  });
 
   const userAccess = allUserVmAccess?.filter(a => a.userId === id) ?? [];
 
@@ -124,6 +145,78 @@ export default function UserDetailPage() {
           </div>
         </div>
       )}
+
+      {user && (
+        <div className="rounded-lg border border-border bg-card">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <div className="flex items-center gap-2">
+              {user.twoFactorEnabled ? (
+                <ShieldCheck className="w-4 h-4 text-green-500" />
+              ) : (
+                <ShieldOff className="w-4 h-4 text-muted-foreground" />
+              )}
+              <h2 className="text-sm font-semibold text-foreground">Two-Factor Authentication</h2>
+              {user.twoFactorEnabled ? (
+                <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium bg-green-500/10 text-green-400 border-green-500/20">
+                  Enabled
+                </span>
+              ) : (
+                <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium bg-muted text-muted-foreground border-border">
+                  Disabled
+                </span>
+              )}
+            </div>
+            {user.twoFactorEnabled && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setDisable2FAOpen(true)}
+              >
+                <ShieldOff className="w-3.5 h-3.5 mr-1.5" />
+                Disable 2FA
+              </Button>
+            )}
+          </div>
+          <div className="px-4 py-3">
+            {user.twoFactorEnabled ? (
+              <p className="text-sm text-muted-foreground">
+                This user has two-factor authentication enabled. As an admin, you can disable it if the user loses access to their authenticator app.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                This user has not enabled two-factor authentication. They can enable it from their Security settings page.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      <AlertDialog open={disable2FAOpen} onOpenChange={setDisable2FAOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disable 2FA for {user?.fullName ?? user?.username}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove two-factor authentication from this user's account. They will be able to log in with just their password until they re-enable 2FA.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => disable2FAMutation.mutate({ id })}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {disable2FAMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  Disabling...
+                </>
+              ) : (
+                "Disable 2FA"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="rounded-lg border border-border bg-card">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-border">

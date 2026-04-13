@@ -116,8 +116,20 @@ export interface User {
   vmCount: number;
   /** @nullable */
   lastLoginAt?: string | null;
+  twoFactorEnabled: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface UserSessionItem {
+  id: number;
+  loginAt: string;
+  /** @nullable */
+  logoutAt?: string | null;
+  /** @nullable */
+  ipAddress?: string | null;
+  /** @nullable */
+  userAgent?: string | null;
 }
 
 export interface CreateUserBody {
@@ -371,6 +383,11 @@ export interface ReviewRequestBody {
   adminNotes?: string | null;
 }
 
+export type DisableUser2fa200 = {
+  ok: boolean;
+  message: string;
+};
+
 export type ListVmsParams = {
   /**
    * @nullable
@@ -389,12 +406,4 @@ export type ListVmsParams = {
 export type ListRequestsParams = {
   status?: string;
   requestType?: string;
-};
-
-export type UserSessionItem = {
-  id: number;
-  loginAt: string;
-  logoutAt?: string | null;
-  ipAddress?: string | null;
-  userAgent?: string | null;
 };
