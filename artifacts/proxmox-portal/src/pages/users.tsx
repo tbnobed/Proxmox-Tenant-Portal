@@ -10,7 +10,7 @@ import {
 import type { User, CreateUserBody, UpdateUserBody } from "@workspace/api-client-react";
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Plus, Pencil, Trash2, Users, Monitor, Mail, Loader2, RefreshCw, X, Clock, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Send, ShieldCheck } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Monitor, Mail, Loader2, RefreshCw, X, Clock, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Send, ShieldCheck, ShieldOff } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -106,6 +106,7 @@ export default function UsersPage() {
   const [form, setForm] = useState<FormData>(defaultForm);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteForm, setInviteForm] = useState({ email: "", role: "viewer", tenantId: "" });
+  const [disable2FAConfirm, setDisable2FAConfirm] = useState<User | null>(null);
   const [invitesExpanded, setInvitesExpanded] = useState(true);
   const [revokeInvite, setRevokeInvite] = useState<Invite | null>(null);
 
@@ -158,6 +159,29 @@ export default function UsersPage() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to revoke invite.", variant: "destructive" });
+    },
+  });
+
+  const disable2FAMutation = useMutation({
+    mutationFn: async (userId: number) => {
+      const res = await fetch(`${BASE}api/users/${userId}/2fa/disable`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to disable 2FA");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: getListUsersQueryKey() });
+      setDisable2FAConfirm(null);
+      setEditUser(null);
+      toast({ title: "2FA Disabled", description: data.message });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     },
   });
 
@@ -534,6 +558,45 @@ export default function UsersPage() {
         <DialogContent>
           <DialogHeader><DialogTitle>Edit User</DialogTitle></DialogHeader>
           {UserForm}
+          {editUser && (
+            <div className="rounded-md border border-border p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {editUser.twoFactorEnabled ? (
+                    <ShieldCheck className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <ShieldOff className="w-4 h-4 text-muted-foreground" />
+                  )}
+                  <span className="text-sm font-medium">Two-Factor Authentication</span>
+                  {editUser.twoFactorEnabled ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium bg-green-500/10 text-green-400 border-green-500/20">
+                      Enabled
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium bg-muted text-muted-foreground border-border">
+                      Disabled
+                    </span>
+                  )}
+                </div>
+                {editUser.twoFactorEnabled && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setDisable2FAConfirm(editUser)}
+                  >
+                    <ShieldOff className="w-3 h-3 mr-1" />
+                    Disable 2FA
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {editUser.twoFactorEnabled
+                  ? "This user has 2FA enabled. You can disable it if they lose access to their authenticator."
+                  : "This user has not set up 2FA. They can enable it from their Security settings."}
+              </p>
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditUser(null)}>Cancel</Button>
             <Button onClick={handleEdit} disabled={updateMutation.isPending}>
@@ -542,6 +605,33 @@ export default function UsersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!disable2FAConfirm} onOpenChange={v => !v && setDisable2FAConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disable 2FA for {disable2FAConfirm?.fullName ?? disable2FAConfirm?.username}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove two-factor authentication from this user's account. They will be able to log in with just their password until they re-enable 2FA.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => disable2FAConfirm && disable2FAMutation.mutate(disable2FAConfirm.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {disable2FAMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  Disabling...
+                </>
+              ) : (
+                "Disable 2FA"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!deleteUser} onOpenChange={v => !v && setDeleteUser(null)}>
         <AlertDialogContent>
